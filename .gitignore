@@ -1,0 +1,22 @@
+# .gitignore
+
+# Environment variables / Secrets
+.env
+
+# Python cache, virtual environments, temp files
+__pycache__/
+*.pyc
+*.pyo
+*.~
+venv/
+env/
+.venv/
+
+# Docker related files (optional, depends on team policy)
+# docker-compose.yml
+# mysql_data/
+
+# IDE / Editor specific files
+.vscode/
+.idea/
+*.swp
