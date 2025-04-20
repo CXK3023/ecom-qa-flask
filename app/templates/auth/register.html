@@ -1,0 +1,32 @@
+{% extends "layouts/base.html" %} {# 继承基础模板 #} {# [source: 23] #}
+{% block title %}用户注册{% endblock %} {# 设置页面标题 #} {# [source: 24] #}
+
+{% block content %} {# 填充主体内容 #} {# [source: 24] #}
+    <h2>用户注册</h2>
+    <form method="post"> {# 表单提交方式为 POST #} {# [source: 24] #}
+        <div>
+            <label for="username">用户名:</label>
+            <input type="text" id="username" name="username" required> {# [source: 24] #}
+        </div>
+        <div>
+            <label for="email">邮箱:</label>
+            <input type="email" id="email" name="email" required> {# [source: 25] #}
+        </div>
+        <div>
+            <label for="password">密码:</label>
+            <input type="password" id="password" name="password" required> {# [source: 25] #}
+        </div>
+        <div>
+            <label for="password2">确认密码:</label>
+            <input type="password" id="password2" name="password2" required> {# [source: 26] #}
+        </div>
+        <div>
+            <label for="role">注册为:</label>
+            <select id="role" name="role"> {# [source: 26] #}
+                <option value="buyer" selected>买家</option> {# [source: 26] #}
+                <option value="seller">商家</option> {# [source: 27] #}
+            </select>
+        </div>
+        <button type="submit">注册</button> {# [source: 27] #}
+    </form>
+{% endblock %} {# [source: 27] #}

@@ -1,0 +1,18 @@
+{% extends "layouts/base.html" %} {# [source: 34] #}
+{% block title %}用户登录{% endblock %} {# [source: 34] #}
+
+{% block content %} {# [source: 34] #}
+    <h2>用户登录</h2>
+    <form method="post"> {# [source: 34] #}
+        <div>
+            <label for="email">邮箱:</label>
+            <input type="email" id="email" name="email" required> {# [source: 35] #}
+        </div>
+        <div>
+            <label for="password">密码:</label>
+            <input type="password" id="password" name="password" required> {# [source: 35] #}
+        </div>
+        <button type="submit">登录</button> {# [source: 35] #}
+    </form>
+    <p>还没有账号？ <a href="{{ url_for('auth.register') }}">立即注册</a></p> {# [source: 36] #}
+{% endblock %} {# [source: 36] #}

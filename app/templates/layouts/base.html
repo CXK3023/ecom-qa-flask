@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}电商问答系统{% endblock %}</title> {# [source: 12] #}
+    <style>
+        /* 简单加一点样式，让提示信息醒目些 */
+        .flash-message {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px; /* [source: 13] */
+        }
+        .flash-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; /* [source: 14] */ }
+        .flash-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; /* [source: 15] */ }
+        nav ul { list-style: none; padding: 0; /* [source: 16] */ }
+        nav li { display: inline; margin-right: 10px; /* [source: 17] */ }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><a href="{{ url_for('main.index') }}">电商问答系统</a></h1>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('main.index') }}">首页</a></li> {# [source: 18] #}
+                {% if current_user.is_authenticated %} {# [source: 18] #}
+                    <li>你好, {{ current_user.username }}!</li> {# [source: 19] #}
+                    <li><a href="{{ url_for('auth.logout') }}">退出登录</a></li> {# [source: 19] #}
+                    {% if current_user.role == 'seller' %}
+                        <li><a href="{{ url_for('seller.dashboard') }}">商家中心</a></li> {# 商家中心链接，稍后创建 #} {# [source: 19] #}
+                    {% endif %} {# [source: 20] #}
+                {% else %} {# [source: 20] #}
+                    <li><a href="{{ url_for('auth.register') }}">注册</a></li> {# [source: 20] #}
+                    <li><a href="{{ url_for('auth.login') }}">登录</a></li> {# [source: 20] #}
+                {% endif %} {# [source: 21] #}
+            </ul>
+        </nav>
+    </header>
+    <hr>
+    {# 显示 Flash 消息 #}
+    {% with messages = get_flashed_messages(with_categories=true) %} {# [source: 21] #}
+        {% if messages %}
+            <div>
+            {% for category, message in messages %} {# [source: 21] #}
+                <div class="flash-message flash-{{ category if category else 'info' }}">{{ message }}</div> {# [source: 22] #}
+            {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    {# 主体内容块，子模板会填充这里 #}
+    <main>
+        {% block content %} {# [source: 22] #}
+        {% endblock %} {# [source: 23] #}
+    </main>
+    <hr>
+    <footer>
+        <p>© 2025 电商问答系统</p> {# [source: 23] #}
+    </footer>
+    {# 之后可以添加 JavaScript 链接 #}
+</body>
+</html>

@@ -1,0 +1,11 @@
+{% extends "layouts/base.html" %} {# [source: 40] #}
+{% block title %}首页{% endblock %} {# [source: 40] #}
+
+{% block content %} {# [source: 40] #}
+    <h2>欢迎来到电商智能问答系统！</h2> {# [source: 40] #}
+    <p>在这里，你可以浏览商品，提出问题。</p> {# [source: 40] #}
+    {% if not current_user.is_authenticated %} {# [source: 40] #}
+    <p>请 <a href="{{ url_for('auth.login') }}">登录</a> 或 <a href="{{ url_for('auth.register') }}">注册</a> 开始。</p> {# [source: 40] #}
+    {% endif %} {# [source: 40] #}
+    {# 之后这里可以放商品列表等内容 #}
+{% endblock %} {# [source: 40] #}
