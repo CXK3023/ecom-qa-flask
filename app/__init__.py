@@ -33,6 +33,8 @@ def create_app():
     app.register_blueprint(main_blueprint) # main 蓝图不需要 URL 前缀 # [source: 41] 
     from .routes.seller import seller as seller_blueprint # [source: 3]
     app.register_blueprint(seller_blueprint, url_prefix='/seller') # 给商家相关的 URL 加上 /seller 前缀 # [source: 3]
+    from .routes.qa import qa as qa_blueprint
+    app.register_blueprint(qa_blueprint, url_prefix='/qa') # 给问答相关的 URL 加上 /qa 前缀
     # 确保在应用上下文中创建数据库表（如果尚不存在）
     # 这不是最佳实践，后面会用 flask shell 或 Flask-Migrate 替代
     # with app.app_context():

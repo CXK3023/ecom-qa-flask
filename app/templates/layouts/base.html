@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}电商问答系统{% endblock %}</title> {# [source: 12] #}
+    <title>{% block title %}电商问答系统{% endblock %}</title>
     <style>
         /* 简单加一点样式，让提示信息醒目些 */
         .flash-message {
             padding: 10px;
             margin-bottom: 15px;
-            border-radius: 5px; /* [source: 13] */
+            border-radius: 5px;
         }
-        .flash-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; /* [source: 14] */ }
-        .flash-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; /* [source: 15] */ }
-        nav ul { list-style: none; padding: 0; /* [source: 16] */ }
-        nav li { display: inline; margin-right: 10px; /* [source: 17] */ }
+        .flash-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        nav ul { list-style: none; padding: 0; }
+        nav li { display: inline; margin-right: 10px; }
     </style>
 </head>
 <body>
@@ -22,40 +22,168 @@
         <h1><a href="{{ url_for('main.index') }}">电商问答系统</a></h1>
         <nav>
             <ul>
-                <li><a href="{{ url_for('main.index') }}">首页</a></li> {# [source: 18] #}
-                {% if current_user.is_authenticated %} {# [source: 18] #}
-                    <li>你好, {{ current_user.username }}!</li> {# [source: 19] #}
-                    <li><a href="{{ url_for('auth.logout') }}">退出登录</a></li> {# [source: 19] #}
+                <li><a href="{{ url_for('main.index') }}">首页</a></li>
+                {% if current_user.is_authenticated %}
+                    <li>你好, {{ current_user.username }}!</li>
+                    <li><a href="{{ url_for('auth.logout') }}">退出登录</a></li>
                     {% if current_user.role == 'seller' %}
-                        <li><a href="{{ url_for('seller.dashboard') }}">商家中心</a></li> {# 商家中心链接，稍后创建 #} {# [source: 19] #}
-                    {% endif %} {# [source: 20] #}
-                {% else %} {# [source: 20] #}
-                    <li><a href="{{ url_for('auth.register') }}">注册</a></li> {# [source: 20] #}
-                    <li><a href="{{ url_for('auth.login') }}">登录</a></li> {# [source: 20] #}
-                {% endif %} {# [source: 21] #}
+                        <li><a href="{{ url_for('seller.dashboard') }}">商家中心</a></li> {# 商家中心链接 #}
+                    {% endif %}
+                {% else %}
+                    <li><a href="{{ url_for('auth.register') }}">注册</a></li>
+                    <li><a href="{{ url_for('auth.login') }}">登录</a></li>
+                {% endif %}
             </ul>
         </nav>
     </header>
     <hr>
     {# 显示 Flash 消息 #}
-    {% with messages = get_flashed_messages(with_categories=true) %} {# [source: 21] #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div>
-            {% for category, message in messages %} {# [source: 21] #}
-                <div class="flash-message flash-{{ category if category else 'info' }}">{{ message }}</div> {# [source: 22] #}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category if category else 'info' }}">{{ message }}</div>
             {% endfor %}
             </div>
         {% endif %}
     {% endwith %}
+
     {# 主体内容块，子模板会填充这里 #}
     <main>
-        {% block content %} {# [source: 22] #}
-        {% endblock %} {# [source: 23] #}
+        {% block content %}
+        {% endblock %}
     </main>
     <hr>
+
+    {# --- 智能问答助手区域 --- #}
+    <div class="qa-section" style="padding: 20px; border: 1px solid #ccc; margin-top: 20px;">
+        <h3>智能问答助手</h3>
+        <div>
+            <input type="text" id="qa-input" placeholder="在这里输入你的问题..." style="width: 70%; padding: 8px;">
+            <button id="qa-button" style="padding: 8px;">提问</button>
+        </div>
+        <div id="qa-status" style="margin-top: 10px; font-style: italic; color: #555;"></div> {# 用于显示“正在思考...” #}
+        <div id="qa-answer" style="margin-top: 10px; padding: 10px; background-color: #f9f9f9; border: 1px solid #eee; min-height: 30px;">
+            {# AI 的回答会显示在这里 #}
+        </div>
+    </div>
+    {# --- 智能问答助手区域结束 --- #}
+
+
     <footer>
-        <p>© 2025 电商问答系统</p> {# [source: 23] #}
+        <p>© 2025 电商问答系统</p>
     </footer>
-    {# 之后可以添加 JavaScript 链接 #}
+
+    {# ====================================================== #}
+    {# !!! 下面是处理问答交互的 JavaScript 代码 !!! #}
+    {# ====================================================== #}
+    <script>
+        // 等待整个 HTML 页面都加载完了，再执行里面的 JavaScript 代码
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("页面脚本开始加载..."); // 调试信息
+
+            // 通过之前定义的 ID，找到页面上的输入框、按钮等元素
+            const qaInput = document.getElementById('qa-input');
+            console.log("获取 qaInput:", qaInput); // 调试信息
+
+            const qaButton = document.getElementById('qa-button');
+            console.log("获取 qaButton:", qaButton); // 调试信息
+
+            const qaStatus = document.getElementById('qa-status');
+            console.log("获取 qaStatus:", qaStatus); // 调试信息
+
+            const qaAnswerDiv = document.getElementById('qa-answer');
+            console.log("获取 qaAnswerDiv:", qaAnswerDiv); // 调试信息
+
+            // 定义一个函数，用来处理发送问题和接收回答的逻辑
+            function handleQuestionSubmit() {
+                console.log("提问按钮被点击！handleQuestionSubmit 函数开始执行..."); // 调试信息
+                const questionText = qaInput.value.trim(); // 获取输入框里的文字，并去掉前后的空格
+
+                // 如果用户没输入任何内容，就弹窗提示，然后停止执行
+                if (!questionText) {
+                    alert('请输入你的问题！');
+                    return;
+                }
+
+                // --- 开始发送请求 ---
+                qaAnswerDiv.textContent = ''; // 清空上一次的回答
+                qaStatus.textContent = '正在思考中，请稍候...'; // 显示提示信息
+                qaButton.disabled = true; // 禁用“提问”按钮，防止用户重复快速点击
+                qaInput.disabled = true;  // 禁用输入框
+
+                // 使用 fetch API 发送网络请求到我们的后端 /qa/ask 地址
+                fetch('/qa/ask', {
+                    method: 'POST', // 使用 POST 方法发送数据
+                    headers: {
+                        'Content-Type': 'application/json' // 告诉后端，我们发送的是 JSON 格式的数据
+                    },
+                    // 把用户的问题包装成 {"question": "用户输入的问题内容"} 这样的 JSON 字符串
+                    body: JSON.stringify({ question: questionText })
+                })
+                .then(response => {
+                    // 当收到后端的初步响应时，执行这里的代码
+                    if (!response.ok) {
+                        // 如果响应状态码不是 2xx (表示请求失败，比如 404, 500)
+                        // 抛出一个错误，这个错误会被下面的 .catch() 捕获
+                        throw new Error(`HTTP 错误! 状态码: ${response.status}`);
+                    }
+                    // 如果响应成功 (状态码 2xx)，就把响应体解析成 JSON 对象
+                    return response.json();
+                })
+                .then(data => {
+                    // 当成功把响应解析成 JSON 数据 (data) 后，执行这里的代码
+                    console.log("收到后端数据:", data); // 调试信息
+                    qaStatus.textContent = ''; // 清空“正在思考”的提示
+
+                    if (data && data.answer) { // 检查返回的数据和 answer 字段是否存在
+                        qaAnswerDiv.textContent = data.answer; // 把 AI 的回答显示在页面的 qa-answer 区域
+                    } else {
+                        qaAnswerDiv.textContent = '抱歉，未能获取到有效的回答。'; // 如果返回的数据不对劲
+                    }
+                })
+                .catch(error => {
+                    // 如果在发送请求或处理响应的过程中发生了任何错误 (比如网络断了，后端崩了，或者上面抛出的 HTTP 错误)
+                    console.error('请求 AI 回答时出错:', error); // 在浏览器的开发者控制台打印详细错误，方便我们调试
+                    qaStatus.textContent = ''; // 清空“正在思考”的提示
+                    // 在页面上显示一个用户能看懂的错误信息
+                    qaAnswerDiv.textContent = `获取回答失败: ${error.message}. 请检查网络或联系管理员。`;
+                })
+                .finally(() => {
+                    // 无论请求是成功还是失败，最后都要执行这里的代码
+                    console.log("请求处理完成。"); // 调试信息
+                    qaButton.disabled = false; // 重新启用“提问”按钮
+                    qaInput.disabled = false;  // 重新启用输入框
+                });
+                // --- fetch 请求结束 ---
+            }
+
+            // 检查按钮是否存在，以防万一
+            if (qaButton) {
+                 // 让“提问”按钮在被点击时，执行上面定义的 handleQuestionSubmit 函数
+                qaButton.addEventListener('click', handleQuestionSubmit);
+                console.log("已为 qaButton 添加点击事件监听器。"); // 调试信息
+            } else {
+                console.error("错误：找不到 qa-button 元素！无法添加监听器。"); // 调试信息
+            }
+
+
+            // (可选功能) 让用户在输入框里按回车键时，也能触发提问
+            if (qaInput) {
+                qaInput.addEventListener('keypress', function(event) {
+                    // 检查按下的键是不是 "Enter"
+                    if (event.key === 'Enter') {
+                        event.preventDefault(); // 阻止回车键的默认行为 (比如在某些浏览器里可能会提交表单)
+                        console.log("检测到回车键，模拟点击提问按钮。"); // 调试信息
+                        handleQuestionSubmit(); // 直接调用我们处理提问的函数
+                    }
+                });
+                console.log("已为 qaInput 添加回车键监听器。"); // 调试信息
+            } else {
+                 console.error("错误：找不到 qa-input 元素！无法添加回车监听器。"); // 调试信息
+            }
+
+        });
+    </script>
 </body>
 </html>
