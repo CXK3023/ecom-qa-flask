@@ -1,0 +1,16 @@
+{% extends "layouts/base.html" %} {# [source: 39] #}
+{% block title %}{{ product.name }}{% endblock %} {# 页面标题直接用商品名 #} {# [source: 39] #}
+
+{% block content %} {# [source: 39] #}
+    <h2>{{ product.name }}</h2> {# 显示商品名称作为大标题 #} {# [source: 40] #}
+    <p><strong>价格:</strong> ￥{{ "%.2f"|format(product.price) }}</p> {# 显示格式化后的价格 #} {# [source: 40] #}
+    <p><strong>库存:</strong> {{ product.stock }} 件</p> {# 显示库存 #} {# [source: 40] #}
+    <p><strong>卖家:</strong> {{ product.seller.username }}</p> {# 显示卖家用户名 #} {# [source: 40] #}
+    <hr> {# 分隔线 #}
+    <p><strong>商品描述:</strong></p> {# [source: 40] #}
+    {# 使用 nl2br 过滤器将描述文本中的换行符转换为 HTML 的 <br> 标签 #}
+    <p>{{ product.description }}</p> {# [source: 41] #}
+    {# 之后可以在这里添加“购买”按钮或“提问”入口 #}
+    <hr> {# 分隔线 #}
+    <p><a href="{{ url_for('main.index') }}">返回首页</a></p> {# 返回首页的链接 #} {# [source: 41] #}
+{% endblock %} {# [source: 41] #}

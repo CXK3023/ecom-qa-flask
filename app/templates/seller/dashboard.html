@@ -1,0 +1,44 @@
+{% extends "layouts/base.html" %} {# [source: 3] #}
+{% block title %}商家中心{% endblock %} {# [source: 3] #}
+
+{% block content %} {# [source: 4] #}
+    <h2>商家中心 - 仪表盘</h2>
+    <p>欢迎回来, {{ current_user.username }}!</p> {# [source: 4] #}
+    <a href="{{ url_for('seller.add_product') }}">添加新商品</a> {# [source: 4] #}
+
+    <h3>您发布的商品</h3>
+    {% if products %} {# [source: 16] #}
+        <table border="1" style="width:100%; border-collapse: collapse;"> {# 使用表格显示更整齐 #} {# [source: 17] #}
+            <thead> {# 表头部分 #}
+                <tr>
+                    <th>ID</th>      {# 商品ID列标题 #} {# [source: 17] #}
+                    <th>名称</th>    {# 商品名称列标题 #} {# [source: 17] #}
+                    <th>价格</th>    {# 价格列标题 #} {# [source: 17] #}
+                    <th>库存</th>    {# 库存列标题 #} {# [source: 17] #}
+                    <th>操作</th>    {# 操作列标题 (放编辑/删除按钮) #} {# [source: 18] #}
+                </tr>
+            </thead>
+            <tbody> {# 表格主体内容部分 #}
+                {% for product in products %} {# 对后台传来的每个商品进行循环 #} {# [source: 18] #}
+                    <tr> {# 表格中的一行 #}
+                        <td>{{ product.id }}</td> {# 显示商品ID #} {# [source: 19] #}
+                        <td>{{ product.name }}</td> {# 显示商品名称 #} {# [source: 19] #}
+                        <td>￥{{ "%.2f"|format(product.price) }}</td> {# 显示格式化后的价格 #} {# [source: 19] #}
+                        <td>{{ product.stock }}</td> {# 显示库存 #} {# [source: 19] #}
+                        <td> {# 操作列单元格 #} {# [source: 19] #}
+                            <a href="{{ url_for('seller.edit_product', product_id=product.id) }}">编辑</a> {# 指向编辑页面的链接 #} {# [source: 20] #}
+                            <form method="post" action="{{ url_for('seller.delete_product', product_id=product.id) }}" style="display: inline; margin-left: 10px;"> {# [source: 35] 注意 url_for 指向 delete_product 函数 #}
+                                <button type="submit" onclick="return confirm('确定要删除商品 “{{ product.name }}” 吗？这无法撤销！');">删除</button> {# [source: 35] #}
+                            </form>
+                        </td>
+                    </tr>
+                {% else %} {# 如果 for 循环没有执行 (即 products 为空) #}
+                    {# 这个 else 属于 for 循环，在表格内暂时不显示特殊内容 #}
+                    {# 外层的 if/else 会处理完全没有商品的情况 #}
+                {% endfor %} {# [source: 21] #}
+            </tbody>
+        </table>
+    {% else %} {# 这个 else 对应 if products，如果 products 为空 #} {# [source: 21] #}
+        <p>您还没有发布任何商品。</p> {# [source: 21] #}
+    {% endif %} {# [source: 21] #}
+{% endblock %} {# [source: 6] #}

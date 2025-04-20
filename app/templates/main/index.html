@@ -8,4 +8,26 @@
     <p>请 <a href="{{ url_for('auth.login') }}">登录</a> 或 <a href="{{ url_for('auth.register') }}">注册</a> 开始。</p> {# [source: 40] #}
     {% endif %} {# [source: 40] #}
     {# 之后这里可以放商品列表等内容 #}
+
+    {# --- 新增的商品展示部分 --- #}
+    <hr> {# 添加一个分隔线 #}
+    <h3>最新商品</h3> {# [source: 36] #}
+    {% if products %} {# 检查后台是否传递了 products 列表，并且列表不为空 #} {# [source: 36] #}
+        <ul> {# 使用无序列表显示商品 #} {# [source: 36] #}
+            {% for product in products %} {# 循环遍历 products 列表中的每一个 product 对象 #} {# [source: 37] #}
+                <li> {# 列表中的一项 #}
+                    {# 让商品名称成为一个链接，指向这个商品的详情页 #}
+                    <a href="{{ url_for('main.product_detail', product_id=product.id) }}"> {# [source: 37] #}
+                        {{ product.name }} {# 显示商品名称 #}
+                    </a>
+                     - ￥{{ "%.2f"|format(product.price) }} {# 显示格式化后的价格 #} {# [source: 38] #}
+                     (由 {{ product.seller.username }} 发布) {# 通过关系显示卖家用户名 #} {# [source: 38] #}
+                </li>
+            {% endfor %} {# 循环结束 #} {# [source: 38] #}
+        </ul>
+    {% else %} {# 如果 products 列表为空或不存在 #} {# [source: 38] #}
+        <p>目前还没有商品上架。</p> {# 显示提示信息 #} {# [source: 38] #}
+    {% endif %} {# 判断结束 #} {# [source: 38] #}
+    {# --- 商品展示部分结束 --- #}
+
 {% endblock %} {# [source: 40] #}

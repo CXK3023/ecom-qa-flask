@@ -1,0 +1,31 @@
+{% extends "layouts/base.html" %} {# [source: 29] #}
+{% block title %}编辑商品 - {{ product.name }}{% endblock %} {# 页面标题也显示商品名 #} {# [source: 29] #}
+
+{% block content %} {# [source: 29] #}
+    <h2>编辑商品: {{ product.name }}</h2> {# 标题也显示商品名 #}
+    {# 表单提交到当前页面 (即编辑路由 /seller/edit/商品ID) #}
+    <form method="post"> {# [source: 30] #}
+        <div>
+            <label for="name">商品名称:</label>
+            {# 关键：使用 product 对象的值来预填充表单输入框 #}
+            <input type="text" id="name" name="name" value="{{ product.name }}" required> {# [source: 30] #}
+        </div>
+        <div>
+            <label for="description">商品描述:</label>
+            {# 对于 textarea，内容放在标签之间来预填充 #}
+            <textarea id="description" name="description" rows="4">{{ product.description or '' }}</textarea> {# or '' 防止 description 是 None 时出错 #} {# [source: 31] #}
+        </div>
+        <div>
+            <label for="price">价格 (元):</label>
+            {# 预填充价格 #}
+            <input type="number" step="0.01" id="price" name="price" value="{{ product.price }}" required> {# [source: 31] #}
+        </div>
+        <div>
+            <label for="stock">库存数量:</label>
+            {# 预填充库存 #}
+            <input type="number" id="stock" name="stock" value="{{ product.stock }}" required> {# [source: 32] #}
+        </div>
+        <button type="submit">保存更改</button> {# [source: 32] #}
+    </form>
+    <p><a href="{{ url_for('seller.dashboard') }}">返回仪表盘</a></p> {# [source: 32] #}
+{% endblock %} {# [source: 32] #}
