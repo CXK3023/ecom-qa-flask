@@ -1,43 +1,53 @@
-# This file is intentionally left blank.
 # app/__init__.py
 import os
+import re
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from dotenv import load_dotenv
+# === 修改：从 markupsafe 导入 Markup 和 escape ===
+from markupsafe import Markup, escape
 
-load_dotenv() # 加载 .env 文件里的“秘密”
+load_dotenv()
 
-# 创建数据库和登录管理的“管家”实例
 db = SQLAlchemy()
 login_manager = LoginManager()
-login_manager.login_view = 'auth.login' # 如果没登录，告诉他去哪个页面登录 (后面会创建auth蓝图)
+login_manager.login_view = 'auth.login'
+login_manager.login_message = "请先登录以访问此页面。"
+login_manager.login_message_category = "info"
+
+# 定义 nl2br 过滤器函数
+_paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
+
+# 保持这个函数定义不变
+def nl2br(value):
+    """将纯文本中的换行符转换成 HTML 的 <br> 标签。"""
+    result = u'\n\n'.join(u'<p>%s</p>' % p.replace('\n', Markup('<br>\n'))
+                          for p in _paragraph_re.split(escape(value)))
+    return Markup(result)
 
 def create_app():
     """创建并配置 Flask 应用实例"""
     app = Flask(__name__)
-
-    # 从 .env 文件加载配置
-    app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY')
+    app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'default-secret-key-for-dev')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False # 关闭一个通常不需要的功能
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # 初始化“管家”
+    # 注册自定义过滤器 (这行保持不变)
+    app.jinja_env.filters['nl2br'] = nl2br
+
     db.init_app(app)
     login_manager.init_app(app)
 
-    # 注册蓝图 (后面会添加具体的页面路由)
+    # --- 注册蓝图 ---
     from .routes.auth import auth as auth_blueprint
     app.register_blueprint(auth_blueprint, url_prefix='/auth')
-    from .routes.main import main as main_blueprint # [source: 41]
-    app.register_blueprint(main_blueprint) # main 蓝图不需要 URL 前缀 # [source: 41] 
-    from .routes.seller import seller as seller_blueprint # [source: 3]
-    app.register_blueprint(seller_blueprint, url_prefix='/seller') # 给商家相关的 URL 加上 /seller 前缀 # [source: 3]
+    from .routes.main import main as main_blueprint
+    app.register_blueprint(main_blueprint)
+    from .routes.seller import seller as seller_blueprint
+    app.register_blueprint(seller_blueprint, url_prefix='/seller')
     from .routes.qa import qa as qa_blueprint
-    app.register_blueprint(qa_blueprint, url_prefix='/qa') # 给问答相关的 URL 加上 /qa 前缀
-    # 确保在应用上下文中创建数据库表（如果尚不存在）
-    # 这不是最佳实践，后面会用 flask shell 或 Flask-Migrate 替代
-    # with app.app_context():
-    #     db.create_all()
+    app.register_blueprint(qa_blueprint, url_prefix='/qa')
+    # --- 蓝图注册结束 ---
 
     return app

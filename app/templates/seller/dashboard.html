@@ -1,44 +1,174 @@
-{% extends "layouts/base.html" %} {# [source: 3] #}
-{% block title %}商家中心{% endblock %} {# [source: 3] #}
+{% extends "layouts/base.html" %} {# 继承基础模板 #}
+{% block title %}商家中心 - 仪表盘{% endblock %} {# 设置页面标题 #}
 
-{% block content %} {# [source: 4] #}
-    <h2>商家中心 - 仪表盘</h2>
-    <p>欢迎回来, {{ current_user.username }}!</p> {# [source: 4] #}
-    <a href="{{ url_for('seller.add_product') }}">添加新商品</a> {# [source: 4] #}
+{% block content %} {# 填充主体内容 #}
+    <div class="d-flex justify-content-between align-items-center mb-4"> {# 使用 Flexbox 布局标题和按钮 #}
+        <h2><i class="bi bi-speedometer2"></i> 商家中心 - 仪表盘</h2> {# (可选) 添加图标 #}
+        {# 使用 Bootstrap 按钮样式 #}
+        <a href="{{ url_for('seller.add_product') }}" class="btn btn-success"> {# 使用绿色按钮 #}
+           <i class="bi bi-plus-circle-fill"></i> 添加新商品
+        </a>
+    </div>
+    <p class="lead">欢迎回来, {{ current_user.username }}!</p> {# 使用 lead 样式 #}
 
-    <h3>您发布的商品</h3>
-    {% if products %} {# [source: 16] #}
-        <table border="1" style="width:100%; border-collapse: collapse;"> {# 使用表格显示更整齐 #} {# [source: 17] #}
-            <thead> {# 表头部分 #}
-                <tr>
-                    <th>ID</th>      {# 商品ID列标题 #} {# [source: 17] #}
-                    <th>名称</th>    {# 商品名称列标题 #} {# [source: 17] #}
-                    <th>价格</th>    {# 价格列标题 #} {# [source: 17] #}
-                    <th>库存</th>    {# 库存列标题 #} {# [source: 17] #}
-                    <th>操作</th>    {# 操作列标题 (放编辑/删除按钮) #} {# [source: 18] #}
-                </tr>
-            </thead>
-            <tbody> {# 表格主体内容部分 #}
-                {% for product in products %} {# 对后台传来的每个商品进行循环 #} {# [source: 18] #}
-                    <tr> {# 表格中的一行 #}
-                        <td>{{ product.id }}</td> {# 显示商品ID #} {# [source: 19] #}
-                        <td>{{ product.name }}</td> {# 显示商品名称 #} {# [source: 19] #}
-                        <td>￥{{ "%.2f"|format(product.price) }}</td> {# 显示格式化后的价格 #} {# [source: 19] #}
-                        <td>{{ product.stock }}</td> {# 显示库存 #} {# [source: 19] #}
-                        <td> {# 操作列单元格 #} {# [source: 19] #}
-                            <a href="{{ url_for('seller.edit_product', product_id=product.id) }}">编辑</a> {# 指向编辑页面的链接 #} {# [source: 20] #}
-                            <form method="post" action="{{ url_for('seller.delete_product', product_id=product.id) }}" style="display: inline; margin-left: 10px;"> {# [source: 35] 注意 url_for 指向 delete_product 函数 #}
-                                <button type="submit" onclick="return confirm('确定要删除商品 “{{ product.name }}” 吗？这无法撤销！');">删除</button> {# [source: 35] #}
-                            </form>
-                        </td>
+    <h3 class="mt-4 mb-3">您发布的商品</h3>
+    {% if products %} {# 检查是否有商品 #}
+        {# 使用 Bootstrap 表格样式，并添加响应式包裹层 #}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-bordered"> {# [source: 106] 添加 Bootstrap 类 #}
+                <thead class="table-light"> {# 表头浅色背景 #}
+                    <tr>
+                        <th scope="col">ID</th>     {# [source: 107] #}
+                        <th scope="col">名称</th>   {# [source: 107] #}
+                        <th scope="col">价格 (元)</th> {# [source: 107] #}
+                        <th scope="col">库存</th>   {# [source: 107] #}
+                        <th scope="col">操作</th>   {# [source: 107] #}
                     </tr>
-                {% else %} {# 如果 for 循环没有执行 (即 products 为空) #}
-                    {# 这个 else 属于 for 循环，在表格内暂时不显示特殊内容 #}
-                    {# 外层的 if/else 会处理完全没有商品的情况 #}
-                {% endfor %} {# [source: 21] #}
-            </tbody>
-        </table>
-    {% else %} {# 这个 else 对应 if products，如果 products 为空 #} {# [source: 21] #}
-        <p>您还没有发布任何商品。</p> {# [source: 21] #}
-    {% endif %} {# [source: 21] #}
-{% endblock %} {# [source: 6] #}
+                </thead>
+                <tbody> {# 表格主体 #}
+                    {% for product in products %} {# [source: 111] 循环商品 #}
+                        <tr>
+                            <th scope="row">{{ product.id }}</th> {# [source: 108] ID 作为行头 #}
+                            <td>{{ product.name }}</td> {# [source: 108] #}
+                            <td>{{ "%.2f"|format(product.price) }}</td> {# [source: 108] 格式化价格 #}
+                            <td>{{ product.stock }}</td> {# [source: 108] #}
+                            <td> {# 操作列单元格 #}
+                                {# 使用 Bootstrap 按钮样式 (小号、带边框) #}
+                                <a href="{{ url_for('seller.edit_product', product_id=product.id) }}" class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="bi bi-pencil-square"></i> 编辑 {# (可选) 图标 #}
+                                </a> {# [source: 109] #}
+                                {# 删除按钮放在表单里，使用 POST 请求，并添加确认提示 #}
+                                <form method="post" action="{{ url_for('seller.delete_product', product_id=product.id) }}" style="display: inline;"> {# [source: 124] #}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定要永久删除商品 “{{ product.name | escape }}” 吗？此操作无法撤销！');"> {# [source: 125] escape 防止商品名含特殊字符破坏 JS #}
+                                       <i class="bi bi-trash3"></i> 删除 {# (可选) 图标 #}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %} {# 结束 for 循环 #}
+                </tbody>
+            </table>
+        </div>
+    {% else %} {# 如果没有商品 #}
+        <div class="alert alert-secondary" role="alert">
+           您还没有发布任何商品。 <a href="{{ url_for('seller.add_product') }}" class="alert-link">立即添加一个？</a>
+        </div>
+    {% endif %} {# 结束 if products #}
+
+
+    {# === 新增：商家专属问答区域 === #}
+    <hr class="my-5"> {# 添加较宽的分割线 #}
+    <div class="card bg-light mb-4 shadow-sm"> {# 使用 Bootstrap Card 样式并添加阴影 #} {# [source: 207] #}
+        <div class="card-header bg-info text-white"> {# 使用蓝色背景白色文字 #}
+            <i class="bi bi-tools"></i> <strong>商家操作助手</strong>
+        </div>
+        <div class="card-body"> {# [source: 207] #}
+            <p class="card-text small text-muted">在这里提问关于后台功能、商品管理、订单处理等操作问题。</p>
+            {# 添加隐藏字段，标记这是商家帮助场景 #}
+            <input type="hidden" id="context-type" value="seller_help"> {# [source: 207] #}
+
+            {# 注意：这里的元素 ID 与 base.html 中的不同，避免冲突 #}
+            <div class="input-group mb-2">
+                <span class="input-group-text"><i class="bi bi-question-circle"></i></span> {# (可选) 输入框前加图标 #}
+                <input type="text" id="seller-qa-input" class="form-control" placeholder="例如：如何添加商品规格？"> {# [source: 208] #}
+                <button class="btn btn-info" type="button" id="seller-qa-button">咨询助手</button> {# [source: 208] #}
+            </div>
+            <div id="seller-qa-status" class="text-muted small mb-1" style="min-height: 1.2em;"></div> {# [source: 209] #}
+            <div id="seller-qa-answer" class="alert alert-light border p-2 small" role="alert" style="min-height: 60px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin-bottom: 0;"> {# [source: 210] #}
+                请在此提问，助手会根据商家操作指南尝试回答。
+            </div>
+        </div>
+    </div>
+    {# === 商家专属问答区域结束 === #}
+
+
+    {# === 新增：处理这个专属问答区的 JavaScript === #}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("商家仪表盘脚本加载...");
+
+        // 获取这个专属问答区的元素
+        const sellerQaInput = document.getElementById('seller-qa-input');
+        const sellerQaButton = document.getElementById('seller-qa-button');
+        const sellerQaStatus = document.getElementById('seller-qa-status');
+        const sellerQaAnswerDiv = document.getElementById('seller-qa-answer');
+        const contextTypeInput = document.getElementById('context-type'); // 获取隐藏的 context type
+
+        // 定义处理商家提问的函数
+        function handleSellerQuestionSubmit() {
+            console.log("商家提问按钮点击！");
+            if (!sellerQaInput || !sellerQaButton || !sellerQaStatus || !sellerQaAnswerDiv || !contextTypeInput) {
+                 console.error("错误：未能找到所有商家问答区的 HTML 元素！");
+                 return;
+            }
+
+            const questionText = sellerQaInput.value.trim();
+            if (!questionText) {
+                sellerQaStatus.textContent = '请输入你的操作问题！';
+                 setTimeout(() => { if(sellerQaStatus.textContent === '请输入你的操作问题！') sellerQaStatus.textContent = ''; }, 2000);
+                return;
+            }
+
+            sellerQaAnswerDiv.textContent = ''; // 清空旧答案
+            sellerQaStatus.innerHTML = `<div class="spinner-border spinner-border-sm text-info" role="status"><span class="visually-hidden">处理中...</span></div><span class="ms-1 small">正在处理中...</span>`; // 使用 info 颜色
+            sellerQaButton.disabled = true;
+            sellerQaInput.disabled = true;
+
+            // 准备发送的数据，包含问题和上下文类型
+            let requestData = {
+                question: questionText,
+                context_type: contextTypeInput.value // 获取 'seller_help' [source: 213]
+            };
+            console.log("发送商家帮助请求:", requestData); // 调试信息
+
+            // 发送请求到同一个 /qa/ask 接口
+            fetch('/qa/ask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData) // [source: 214]
+            })
+            .then(response => {
+                if (!response.ok) { throw new Error(`请求失败: ${response.status}`); }
+                return response.json();
+             }) // [source: 214]
+            .then(data => {
+                sellerQaStatus.innerHTML = ''; // 清空状态
+                sellerQaAnswerDiv.textContent = data.answer || '未能获取回答。'; // [source: 215]
+                sellerQaAnswerDiv.scrollTop = 0; // 回答后滚动到顶部
+            })
+            .catch(error => {
+                console.error('商家提问出错:', error);
+                sellerQaStatus.innerHTML = ''; // 清空状态
+                sellerQaAnswerDiv.textContent = `提问失败: ${error.message}。请稍后再试。`; // [source: 216]
+            })
+            .finally(() => {
+                sellerQaButton.disabled = false; // 恢复按钮
+                sellerQaInput.disabled = false;  // 恢复输入框
+                sellerQaInput.focus();           // 输入框获取焦点
+            }); // [source: 217]
+        } // --- handleSellerQuestionSubmit 函数定义结束 ---
+
+        // --- 绑定事件监听器 ---
+        if (sellerQaButton) {
+            sellerQaButton.addEventListener('click', handleSellerQuestionSubmit); // [source: 211]
+             console.log("已为 sellerQaButton 添加点击事件监听器。");
+        } else {
+             console.error("错误：找不到 seller-qa-button 元素！");
+        }
+         if (sellerQaInput) {
+            sellerQaInput.addEventListener('keypress', function(event) { // [source: 218] 添加回车支持
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSellerQuestionSubmit();
+                }
+            });
+             console.log("已为 sellerQaInput 添加回车键监听器。");
+         } else {
+             console.error("错误：找不到 seller-qa-input 元素！");
+         }
+
+    }); // --- DOMContentLoaded 事件监听结束 ---
+    </script> {# [source: 218] #}
+    {# === JavaScript 结束 === #}
+
+{% endblock %} {# 结束 content 块 #}
