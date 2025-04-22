@@ -5,53 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}电商问答系统{% endblock %}</title>
     {# === 引入 Bootstrap CSS === #}
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous"> {# [source: 233] #}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    {# (可选) 引入 Bootstrap Icons CSS (如果需要使用 bi-* 图标) #}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     {# (可选) 你可以添加自己的 CSS 文件链接在这里 #}
     <style>
         /* 保留一些自定义样式，或者后续可以移到单独的 CSS 文件 */
-        body { padding-bottom: 80px; /* 为底部内容留出空间 */ }
-        .qa-section { margin-bottom: 20px; } /* 给问答区底部加点间距 */
+        body { padding-bottom: 100px; /* 稍微增加底部内边距，给固定问答区留空间 */ }
+        /* 调整固定问答区样式，可以根据喜好修改 */
+        .qa-fixed-bottom {
+            max-height: 200px; /* 限制最大高度 */
+            overflow-y: hidden; /* 默认隐藏滚动条 */
+            transition: max-height 0.3s ease-in-out; /* 添加过渡效果 */
+        }
+        .qa-fixed-bottom:hover {
+            max-height: 400px; /* 鼠标悬停时展开 */
+            overflow-y: auto; /* 悬停时允许滚动 */
+        }
+        /* 确保内容区不会被固定页脚遮挡 */
+        main.container { margin-bottom: 100px; } 
     </style>
 </head>
 <body>
     {# === 使用 Bootstrap 导航栏 === #}
     <header>
-        <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom mb-4"> {# [source: 233] #}
+        <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom mb-4 shadow-sm"> {# 添加一点阴影 #}
           <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('main.index') }}">电商问答系统</a>
+            <a class="navbar-brand" href="{{ url_for('main.index') }}"><i class="bi bi-chat-left-dots-fill text-primary"></i> 电商问答系统</a> {# 添加图标 #}
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-              <span class="navbar-toggler-icon"></span> {# [source: 234] #}
+              <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
               <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                  {# 可以在这里添加判断当前页面的逻辑来高亮 active 链接 #}
-                  <a class="nav-link active" aria-current="page" href="{{ url_for('main.index') }}">首页</a>
+                  {# 根据当前请求路径判断是否为首页，添加 active 类 #}
+                  <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" aria-current="page" href="{{ url_for('main.index') }}">首页</a>
                 </li>
-                {# 可以在这里添加其他公共导航链接 #}
+                {# 可以在这里添加其他公共导航链接，例如商品分类等 #}
+                {# <li class="nav-item"> <a class="nav-link" href="#">所有商品</a> </li> #}
               </ul>
-              <ul class="navbar-nav"> {# [source: 234] #}
+              <ul class="navbar-nav"> 
                 {% if current_user.is_authenticated %}
-                  <li class="nav-item dropdown"> {# 使用下拉菜单展示用户信息和操作 #}
+                  <li class="nav-item dropdown"> 
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownUserLink" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                      你好, {{ current_user.username }}!
+                      <i class="bi bi-person-circle"></i> 你好, {{ current_user.username }}!
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownUserLink">
-                      <li><a class="dropdown-item" href="{{ url_for('main.profile') }}">个人资料</a></li> {# [source: 83] 假设有 profile 路由 #}
+                      <li><a class="dropdown-item {% if request.endpoint == 'main.profile' %}active{% endif %}" href="{{ url_for('main.profile') }}"><i class="bi bi-person-lines-fill"></i> 个人资料</a></li> 
+                      
+                      {# === 修改点：添加 Admin 入口 === #}
+                      {% if current_user.role == 'admin' %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item {% if request.blueprint == 'admin' %}active{% endif %}" href="{{ url_for('admin.list_rules') }}"><i class="bi bi-gear-fill"></i> 管理后台</a></li> 
+                      {% endif %}
+                      {# === Admin 入口结束 === #}
+
                       {% if current_user.role == 'seller' %}
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{{ url_for('seller.dashboard') }}">商家中心</a></li> {# [source: 235] #}
+                        <li><a class="dropdown-item {% if request.blueprint == 'seller' %}active{% endif %}" href="{{ url_for('seller.dashboard') }}"><i class="bi bi-shop"></i> 商家中心</a></li> 
                       {% endif %}
+                      
                       <li><hr class="dropdown-divider"></li>
-                      <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">退出登录</a></li> {# [source: 235] #}
+                      <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> 退出登录</a></li> 
                     </ul>
                   </li>
                 {% else %}
                   <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('auth.register') }}">注册</a> {# [source: 236] #}
+                    <a class="nav-link {% if request.endpoint == 'auth.register' %}active{% endif %}" href="{{ url_for('auth.register') }}">注册</a> 
                   </li>
                   <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('auth.login') }}">登录</a> {# [source: 236] #}
+                    <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}" href="{{ url_for('auth.login') }}">登录</a> 
                   </li>
                 {% endif %}
               </ul>
@@ -61,55 +84,49 @@
     </header>
 
     {# === 使用 Bootstrap Alert 显示 Flash 消息 === #}
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="container mt-3"> {# 将 flash 消息也放入容器内 #}
-            {% for category, message in messages %}
-                {# 映射 category 到 alert 类型，提供默认值 #}
-                {% set alert_type = 'success' if category == 'success' else 'danger' if category == 'error' else 'info' %}
-                <div class="alert alert-{{ alert_type }} alert-dismissible fade show" role="alert"> {# [source: 238] #}
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button> {# [source: 238] #}
-                </div>
-            {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
+    <div class="container"> {# 将 flash 消息容器移到这里，只出现一次 #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    {% set alert_type = 'success' if category == 'success' else 'danger' if category == 'error' else 'info' %}
+                    <div class="alert alert-{{ alert_type }} alert-dismissible fade show mt-3" role="alert"> 
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button> 
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
 
     {# === 主体内容区域，使用 Bootstrap 容器 === #}
-    <main class="container mt-4"> {# [source: 233] 使用容器并添加上边距 #}
+    <main class="container mt-4"> 
         {% block content %}
         {# 子模板的内容会在这里填充 #}
         {% endblock %}
     </main>
 
-    {# === 智能问答助手区域 (固定在底部或放在 main 外部) === #}
-    {# 如果你希望它在每个页面都有，就放在这里 #}
-    {# 如果只在特定页面有，就从这里移到子模板的 content block 里 #}
-    <div class="container fixed-bottom bg-light border-top pt-3 qa-section"> {# 固定在底部并美化 #}
-         {# 可以加一个折叠按钮来显示/隐藏问答区 #}
-         {# <p><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#qaCollapseArea" aria-expanded="false" aria-controls="qaCollapseArea">显示/隐藏 AI 助手</button></p> #}
-         {# <div class="collapse" id="qaCollapseArea"> #}
-             <h5><i class="bi bi-robot"></i> 智能问答助手</h5> {# (可选) 使用 Bootstrap Icons #}
-             <div class="input-group mb-2"> {# [source: 239] #}
-                 <input type="text" id="qa-input" class="form-control form-control-sm" placeholder="有问题问 AI..." aria-label="问答输入框"> {# [source: 240] #}
-                 <button class="btn btn-sm btn-primary" type="button" id="qa-button">发送</button> {# [source: 240] #}
-             </div>
-             <div id="qa-status" class="text-muted small mb-1" style="min-height: 1.2em;"></div> {# [source: 240] #}
-             <div id="qa-answer" class="alert alert-secondary alert-sm small p-2" role="alert" style="min-height: 40px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; margin-bottom: 10px;"> {# [source: 240] 设置最大高度并允许滚动 #}
-                 你好！有什么可以帮你的吗？
-             </div>
-         {# </div> #}
+    {# === 智能问答助手区域 (固定在底部) === #}
+    <div class="container fixed-bottom bg-body-tertiary border-top pt-3 qa-fixed-bottom shadow-lg"> {# 使用 bg-body-tertiary 适应主题，添加阴影 #}
+         <h5><i class="bi bi-robot"></i> 智能问答助手</h5> 
+         <div class="input-group mb-2"> 
+             <input type="text" id="qa-input" class="form-control form-control-sm" placeholder="有问题问 AI..." aria-label="问答输入框"> 
+             <button class="btn btn-sm btn-primary" type="button" id="qa-button"><i class="bi bi-send"></i> 发送</button> 
+         </div>
+         <div id="qa-status" class="text-muted small mb-1" style="min-height: 1.2em;"></div> 
+         <div id="qa-answer" class="alert alert-light alert-sm small p-2 border" role="alert" style="min-height: 40px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; margin-bottom: 10px; background-color: #f8f9fa;"> {# 使用更浅的背景 #}
+             你好！有什么可以帮你的吗？
+         </div>
      </div>
     {# === 智能问答助手区域结束 === #}
 
 
-    <footer class="container mt-5 py-3 text-center text-muted border-top"> {# 页脚也放入容器并美化 #}
-        <p>&copy; {{ current_time.year if current_time else 2025 }} 电商问答系统</p> {# 动态年份 #}
+    <footer class="container mt-5 py-3 text-center text-muted border-top small"> {# 页脚文字改小 #}
+        {# 尝试在后端传递当前年份 #}
+        <p>&copy; 2025 电商问答系统. All Rights Reserved.</p>
     </footer>
 
     {# === 引入 Bootstrap JS (必须放在 </body> 前) === #}
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script> {# [source: 233] #}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script> 
 
     {# ====================================================== #}
     {# !!! 下面是处理问答交互的 JavaScript 代码 (已修改) !!! #}
@@ -146,31 +163,36 @@
                 // --- 开始发送请求 ---
                 qaAnswerDiv.textContent = ''; // 清空旧答案
                 // 使用 Bootstrap Spinner 作为加载提示
-                qaStatus.innerHTML = `<div class="spinner-border spinner-border-sm text-secondary" role="status"><span class="visually-hidden">思考中...</span></div><span class="ms-1 small">正在思考中...</span>`; // [source: 242]
+                qaStatus.innerHTML = `<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">思考中...</span></div><span class="ms-1 small">正在思考中...</span>`; // 使用 primary 颜色
                 qaButton.disabled = true;
                 qaInput.disabled = true;
+                qaInput.value = ''; // 点击发送后清空输入框
 
                 // --- 准备要发送的数据 ---
                 let requestData = {
                     question: questionText // 包含用户的问题
                 };
 
-                // === 修改点：检查并添加 product_id ===
+                // === 检查并添加 product_id ===
                 const productIdInput = document.getElementById('product-id-context');
-                // 检查 id="product-id-context" 的元素是否存在，并且有值
                 if (productIdInput && productIdInput.value) {
-                    requestData.product_id = productIdInput.value; // 添加 product_id [source: 195]
-                    console.log("提问上下文中包含商品ID:", requestData.product_id); // 调试信息 [source: 196]
+                    requestData.product_id = productIdInput.value; 
+                    console.log("提问上下文中包含商品ID:", requestData.product_id); 
                 } else {
-                    console.log("当前页面没有找到 product-id-context，按通用问题处理。"); // 调试信息
+                    console.log("当前页面没有找到 product-id-context，按通用问题处理。"); 
                 }
-                // === 修改点结束 ===
+                // === 检查并添加 context_type (例如来自商家后台) ===
+                const contextTypeInput = document.getElementById('context-type'); // 查找 id='context-type' 的隐藏输入框
+                if (contextTypeInput && contextTypeInput.value) {
+                    requestData.context_type = contextTypeInput.value; // 添加 context_type
+                    console.log("提问上下文中包含 context_type:", requestData.context_type);
+                }
 
                 // --- 使用 fetch API 发送 POST 请求到后端 ---
                 fetch('/qa/ask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestData) // 发送可能包含 product_id 的数据 [source: 196]
+                    body: JSON.stringify(requestData) 
                 })
                 .then(response => {
                     if (!response.ok) {
@@ -184,19 +206,17 @@
                 })
                 .then(data => {
                     console.log("收到后端数据:", data);
-                    qaStatus.innerHTML = ''; // 清空加载状态 [source: 243]
+                    qaStatus.innerHTML = ''; // 清空加载状态 
                     if (data && data.answer) {
                         qaAnswerDiv.textContent = data.answer;
                         qaAnswerDiv.scrollTop = 0; // 回答后滚动到顶部
                     } else {
                         qaAnswerDiv.textContent = '抱歉，未能获取到有效的回答。';
                     }
-                    // 提问成功后不清空输入框，方便连续提问或修改
-                    // qaInput.value = '';
                 })
                 .catch(error => {
                     console.error('请求 AI 回答时出错:', error);
-                    qaStatus.innerHTML = ''; // 清空加载状态 [source: 243]
+                    qaStatus.innerHTML = ''; // 清空加载状态 
                     qaAnswerDiv.textContent = `获取回答失败: ${error.message}. 请检查网络或联系管理员。`;
                 })
                 .finally(() => {
@@ -227,6 +247,10 @@
             } else {
                 console.error("错误：找不到 qa-input 元素！");
             }
+
+            // --- (新增) 处理特定页面的 JavaScript (例如商家后台) ---
+            // 我们将特定页面的 JS 移到各自的模板中，以避免冲突
+            // 这里只保留通用的 base.html 的问答逻辑
 
         }); // --- DOMContentLoaded 事件监听结束 ---
     </script>

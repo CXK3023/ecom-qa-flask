@@ -53,13 +53,13 @@ def load_user(user_id):
     # User.query.get 是 SQLAlchemy 提供的方法，通过主键(id)查找用户
     return User.query.get(int(user_id))
 
-# --- (可选) 规则/FAQ 模型 ---
-# class FaqRule(db.Model):
-#     """规则/FAQ 数据模型 (第5天会用到)"""
-#     id = db.Column(db.Integer, primary_key=True)
-#     category = db.Column(db.String(50)) # 分类 (如 '售后', '商家操作')
-#     question = db.Column(db.Text, nullable=False) # 问题
-#     answer = db.Column(db.Text, nullable=False) # 答案
-#
-#     def __repr__(self):
-#         return f'<FaqRule {self.category}: {self.question[:30]}>'
+# --- 规则/FAQ 模型 --- 
+class FaqRule(db.Model): # [source: 137] 取消注释
+    """规则/FAQ 数据模型"""
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(50), index=True) # 给 category 加索引方便查询
+    question = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.Text, nullable=False)
+
+    def __repr__(self):
+        return f'<FaqRule {self.category}: {self.question[:30]}...>'

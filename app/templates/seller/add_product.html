@@ -1,26 +1,47 @@
-{% extends "layouts/base.html" %} {# [source: 13] #}
-{% block title %}添加新商品{% endblock %} {# [source: 13] #}
+{% extends "layouts/base.html" %} 
+{% block title %}添加新商品{% endblock %}
 
-{% block content %} {# [source: 13] #}
-    <h2>添加新商品</h2>
-    <form method="post"> {# [source: 13] #}
-        <div>
-            <label for="name">商品名称:</label>
-            <input type="text" id="name" name="name" required> {# [source: 14] #}
+{% block content %}
+    <div class="row justify-content-center"> {# 使用网格居中 #}
+        <div class="col-md-8"> {# 可以稍微宽一点 #}
+            <h2 class="mb-4">添加新商品</h2> {# 增加标题下边距 #}
+            <form method="post">
+                
+                {# 商品名称 #}
+                <div class="mb-3">
+                    <label for="name" class="form-label">商品名称:</label> {# 添加 form-label #}
+                    <input type="text" id="name" name="name" class="form-control" required> {# 添加 form-control #}
+                </div>
+                
+                {# 商品描述 #}
+                <div class="mb-3">
+                    <label for="description" class="form-label">商品描述:</label> {# 添加 form-label #}
+                    <textarea id="description" name="description" class="form-control" rows="4"></textarea> {# 添加 form-control #}
+                </div>
+                
+                {# 价格 #}
+                <div class="mb-3">
+                    <label for="price" class="form-label">价格 (元):</label> {# 添加 form-label #}
+                    {# 使用 input-group 来添加货币符号 #}
+                    <div class="input-group">
+                         <span class="input-group-text">￥</span>
+                         <input type="number" step="0.01" id="price" name="price" class="form-control" required placeholder="例如：99.99"> {# 添加 form-control #}
+                    </div>
+                </div>
+                
+                {# 库存数量 #}
+                <div class="mb-3">
+                    <label for="stock" class="form-label">库存数量:</label> {# 添加 form-label #}
+                     <input type="number" id="stock" name="stock" class="form-control" required placeholder="例如：100"> {# 添加 form-control #}
+                </div>
+                
+                {# 提交按钮 #}
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end"> {# 让按钮靠右 #}
+                    <a href="{{ url_for('seller.dashboard') }}" class="btn btn-secondary me-md-2">返回仪表盘</a> {# 返回按钮 #}
+                    <button type="submit" class="btn btn-success">确认添加</button> {# 添加按钮，使用绿色 success #}
+                </div>
+                
+            </form>
         </div>
-        <div>
-            <label for="description">商品描述:</label>
-            <textarea id="description" name="description" rows="4"></textarea> {# [source: 14] #}
-        </div>
-        <div>
-            <label for="price">价格 (元):</label>
-            <input type="number" step="0.01" id="price" name="price" required> {# step="0.01" 允许输入小数 #} {# [source: 15] #}
-        </div>
-        <div>
-            <label for="stock">库存数量:</label>
-            <input type="number" id="stock" name="stock" required> {# [source: 15] #}
-        </div>
-        <button type="submit">确认添加</button> {# [source: 15] #}
-    </form>
-    <p><a href="{{ url_for('seller.dashboard') }}">返回仪表盘</a></p> {# [source: 15] #}
-{% endblock %} {# [source: 15] #}
+    </div>
+{% endblock %}

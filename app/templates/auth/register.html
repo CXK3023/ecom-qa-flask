@@ -1,32 +1,55 @@
-{% extends "layouts/base.html" %} {# 继承基础模板 #} {# [source: 23] #}
-{% block title %}用户注册{% endblock %} {# 设置页面标题 #} {# [source: 24] #}
+{% extends "layouts/base.html" %} {# 继承基础模板 #}
+{% block title %}用户注册{% endblock %} {# 设置页面标题 #}
 
-{% block content %} {# 填充主体内容 #} {# [source: 24] #}
-    <h2>用户注册</h2>
-    <form method="post"> {# 表单提交方式为 POST #} {# [source: 24] #}
-        <div>
-            <label for="username">用户名:</label>
-            <input type="text" id="username" name="username" required> {# [source: 24] #}
+{% block content %} {# 填充主体内容 #}
+    <div class="row justify-content-center"> {# 使用 Bootstrap 网格系统让表单居中，可选 #}
+        <div class="col-md-6"> {# 控制表单宽度 #}
+            <h2 class="mb-4">用户注册</h2> {# 增加标题下边距 #}
+            <form method="post"> {# 表单提交方式为 POST #}
+                
+                {# 用户名 #}
+                <div class="mb-3"> {# 外层 div 添加 mb-3 #}
+                    <label for="username" class="form-label">用户名:</label> {# label 添加 form-label #}
+                    <input type="text" id="username" name="username" class="form-control" required> {# input 添加 form-control #}
+                </div>
+                
+                {# 邮箱 #}
+                <div class="mb-3">
+                    <label for="email" class="form-label">邮箱:</label>
+                    <input type="email" id="email" name="email" class="form-control" required> {# input 添加 form-control #}
+                </div>
+                
+                {# 密码 #}
+                <div class="mb-3">
+                    <label for="password" class="form-label">密码:</label>
+                    <input type="password" id="password" name="password" class="form-control" required> {# input 添加 form-control #}
+                </div>
+                
+                {# 确认密码 #}
+                <div class="mb-3">
+                    <label for="password2" class="form-label">确认密码:</label>
+                    <input type="password" id="password2" name="password2" class="form-control" required> {# input 添加 form-control #}
+                </div>
+                
+                {# 角色选择 #}
+                <div class="mb-3">
+                    <label for="role" class="form-label">注册为:</label>
+                    <select id="role" name="role" class="form-select"> {# select 使用 form-select 效果更好 #}
+                        <option value="buyer" selected>买家</option>
+                        <option value="seller">商家</option>
+                    </select>
+                </div>
+                
+                {# 提交按钮 #}
+                <button type="submit" class="btn btn-primary w-100">注册</button> {# button 添加 btn btn-primary，w-100 让按钮宽度占满 #}
+            
+            </form>
+            
+            {# 添加跳转登录链接 #}
+            <p class="mt-3 text-center">
+                已有账号？ <a href="{{ url_for('auth.login') }}">立即登录</a>
+            </p>
+            
         </div>
-        <div>
-            <label for="email">邮箱:</label>
-            <input type="email" id="email" name="email" required> {# [source: 25] #}
-        </div>
-        <div>
-            <label for="password">密码:</label>
-            <input type="password" id="password" name="password" required> {# [source: 25] #}
-        </div>
-        <div>
-            <label for="password2">确认密码:</label>
-            <input type="password" id="password2" name="password2" required> {# [source: 26] #}
-        </div>
-        <div>
-            <label for="role">注册为:</label>
-            <select id="role" name="role"> {# [source: 26] #}
-                <option value="buyer" selected>买家</option> {# [source: 26] #}
-                <option value="seller">商家</option> {# [source: 27] #}
-            </select>
-        </div>
-        <button type="submit">注册</button> {# [source: 27] #}
-    </form>
-{% endblock %} {# [source: 27] #}
+    </div>
+{% endblock %}

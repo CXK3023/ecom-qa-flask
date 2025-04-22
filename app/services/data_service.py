@@ -1,129 +1,110 @@
 # app/services/data_service.py
-import json  # Python 内置的处理 JSON 的库
-import os    # 用来处理文件路径
+import logging # 引入日志模块
+from ..models import FaqRule # 导入 FaqRule 模型
+from .. import db # 导入数据库实例 db 用于查询
 
-# --- 全局变量，用于缓存加载的数据 ---
-# 我们把读取到的规则存放在这里，避免每次需要都去读文件
-_rules_data = None
-_rules_file_path = None # 缓存文件路径
+# --- 配置日志 ---
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def _get_rules_file_path():
+# --- 全局变量，用于缓存从数据库加载的数据 ---
+# 缓存结构将保持为 list of dicts，以兼容 qa.py 的现有逻辑
+_rules_data_cache = None
+
+def load_rules_from_db():
     """
-    动态计算 rules.json 文件的绝对路径。
-    这样无论我们的脚本在哪里运行，都能找到它。
+    从数据库的 FaqRule 表加载所有规则/FAQ 数据。
+    将 SQLAlchemy 对象转换为字典列表。
     """
-    global _rules_file_path
-    if _rules_file_path is None:
-        # __file__ 是当前 data_service.py 文件的路径
-        # os.path.abspath(__file__) 获取它的绝对路径
-        # os.path.dirname(...) 获取它所在的目录 (app/services)
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        # 我们知道 rules.json 在项目根目录的 data 文件夹下
-        # 从 app/services 往上走两级 ('..', '..') 就到了项目根目录
-        project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
-        # 然后拼接上 'data' 和 'rules.json' 得到最终路径
-        _rules_file_path = os.path.join(project_root, 'data', 'rules.json')
-        print(f"--- [data_service] 规则文件路径确定为: {_rules_file_path} ---") # 打印路径方便调试
-    return _rules_file_path
-
-def load_rules_from_json():
-    """
-    从 rules.json 文件加载规则/FAQ 数据。
-    使用缓存避免重复读取文件。
-    """
-    global _rules_data
-    # 如果 _rules_data 已经有内容了（说明之前加载过），就直接返回它
-    if _rules_data is not None:
-        print("--- [data_service] 使用已缓存的规则数据 ---")
-        return _rules_data
-
-    print("--- [data_service] 首次加载规则数据或缓存为空 ---")
-    file_path = _get_rules_file_path() # 获取文件路径
-
+    logger.info("Attempting to load rules from database...")
     try:
-        # 'r' 表示读取模式, encoding='utf-8' 确保能正确处理中文等字符
-        with open(file_path, 'r', encoding='utf-8') as f:
-            # json.load(f) 会读取文件内容并把它解析成 Python 的数据结构 (这里是列表)
-            loaded_data = json.load(f)
-            _rules_data = loaded_data  # 将加载的数据存入缓存变量
-            print(f"--- [data_service] 成功加载 {len(_rules_data)} 条规则 ---")
-            return _rules_data
-    except FileNotFoundError:
-        # 如果文件不存在
-        print(f"!!! [data_service] 错误：规则文件未找到: {file_path} !!!")
-        _rules_data = [] # 文件找不到，返回一个空列表，避免程序出错
-        return _rules_data
-    except json.JSONDecodeError as e:
-        # 如果文件内容不是有效的 JSON 格式
-        print(f"!!! [data_service] 错误：解析 rules.json 文件失败: {e} !!!")
-        print("--- 请仔细检查 rules.json 文件的格式是否正确（逗号、引号等）！ ---")
-        _rules_data = [] # 解析失败，也返回空列表
-        return _rules_data
+        # 查询数据库，获取所有 FaqRule 记录，按 ID 排序
+        rules_objects = FaqRule.query.order_by(FaqRule.id).all()
+
+        # 将查询结果 (SQLAlchemy 对象列表) 转换为字典列表
+        # 这是为了保持与之前 JSON 结构一致，方便 qa.py 使用
+        rules_list_of_dicts = [
+            {
+                'id': rule.id,
+                'category': rule.category,
+                'question': rule.question,
+                'answer': rule.answer
+            }
+            for rule in rules_objects
+        ]
+        logger.info(f"Successfully loaded {len(rules_list_of_dicts)} rules from database.")
+        return rules_list_of_dicts
     except Exception as e:
-        # 捕获其他可能发生的意外错误
-        print(f"!!! [data_service] 加载规则文件时发生未知错误: {e} !!!")
-        _rules_data = [] # 发生未知错误，返回空列表
-        return _rules_data
+        # 处理可能的数据库查询错误
+        logger.error(f"Error loading rules from database: {e}", exc_info=True) # 记录详细错误信息
+        return [] # 出错时返回空列表
 
 def get_all_rules():
     """
-    获取所有已加载的规则/FAQ。
-    这个函数是给其他模块调用的接口。
+    获取所有规则/FAQ 数据（优先从缓存读取）。
+    这是供其他模块调用的主要接口。
     """
-    # 它会调用 load_rules_from_json()，该函数内部会处理缓存逻辑
-    return load_rules_from_json()
+    global _rules_data_cache
+    if _rules_data_cache is None:
+        logger.info("Rules cache is empty. Loading from database...")
+        # 缓存为空，调用数据库加载函数
+        _rules_data_cache = load_rules_from_db()
+    else:
+        logger.info("Using cached rules data.")
+    # 返回缓存数据（如果加载失败，load_rules_from_db 会返回空列表）
+    return _rules_data_cache if _rules_data_cache is not None else []
 
-# app/services/data_service.py (添加这个新函数)
+def clear_rules_cache():
+    """
+    清除规则数据的内存缓存。
+    (这个函数将在后面管理员修改规则时被调用)
+    """
+    global _rules_data_cache
+    logger.warning("Clearing rules data cache.")
+    _rules_data_cache = None
 
 def get_rules_by_category(category):
     """
-    根据类别筛选规则/FAQ。
-    Args:
-        category (str): 需要筛选的类别名称 (例如 '商家操作', '售后')。
-    Returns:
-        list: 包含所有匹配类别规则的字典列表，如果找不到则返回空列表。
+    根据类别筛选规则/FAQ (从缓存或数据库获取数据)。
     """
-    all_rules = get_all_rules() # 首先获取所有规则 (会使用缓存)
+    all_rules_dicts = get_all_rules() # 获取所有规则 (此函数会处理缓存和数据库加载)
 
-    if not category: # 如果传入的类别是空的，直接返回空列表
+    if not category:
+        logger.warning("Category not provided for filtering.")
         return []
 
-    category_lower = category.lower() # 将传入的类别名称转为小写，用于不区分大小写的比较
+    category_lower = category.lower()
+    logger.info(f"Filtering rules for category: '{category_lower}'")
 
-    # 使用列表推导式进行筛选
+    # 在获取到的字典列表上进行筛选 (逻辑不变)
     filtered_rules = [
-        rule for rule in all_rules # 遍历每一条规则
-        # rule.get('category', '') 安全地获取规则的 'category' 字段，如果没有则返回空字符串
-        # .lower() 将规则的类别也转为小写
-        # 比较两者是否相等
+        rule for rule in all_rules_dicts
         if rule.get('category', '').lower() == category_lower
     ]
-
-    # 打印调试信息，显示筛选结果数量
-    print(f"--- [data_service] 根据类别 '{category}' 筛选到 {len(filtered_rules)} 条规则 ---")
+    logger.info(f"Found {len(filtered_rules)} rules for category '{category_lower}'.")
     return filtered_rules
 
-
-# (可选) 简单的关键词查找功能 (我们明天可能会用到或改进它)
 def find_rules_by_keyword(keyword):
     """
-    根据关键词在问题或答案中查找规则 (忽略大小写)。
+    根据关键词在问题或答案中查找规则 (从缓存或数据库获取数据)。
     """
-    rules = get_all_rules() # 先获取所有规则
-    if not keyword: # 如果关键词是空的，直接返回空列表
+    rules_dicts = get_all_rules() # 获取所有规则 (此函数会处理缓存和数据库加载)
+
+    if not keyword:
+        logger.warning("Keyword not provided for searching.")
         return []
-    keyword_lower = keyword.lower() # 将关键词转为小写，方便比较
-    # 使用列表推导式筛选规则
+
+    keyword_lower = keyword.lower()
+    logger.info(f"Searching rules with keyword: '{keyword_lower}'")
+
+    # 在获取到的字典列表上进行搜索 (逻辑不变)
     found_rules = [
-        rule for rule in rules # 遍历每一条规则
-        # 检查关键词是否在规则的 'question' 或 'answer' 字段中 (都转为小写比较)
-        # rule.get('question', '') 如果没有 'question' 键，返回空字符串，避免错误
+        rule for rule in rules_dicts
         if keyword_lower in rule.get('question', '').lower() or \
            keyword_lower in rule.get('answer', '').lower()
     ]
+    logger.info(f"Found {len(found_rules)} rules matching keyword '{keyword_lower}'.")
     return found_rules
 
-# --- 模块首次被导入时，尝试预加载一次数据 ---
-# 这样应用启动后，第一次需要规则数据时就可能直接从缓存读取了
-print("--- [data_service] 模块初始化，尝试预加载规则数据 ---")
-load_rules_from_json()
+# --- 不再需要在模块加载时预加载，改为首次调用 get_all_rules 时加载 ---
+logger.info("[data_service] Module initialized. Rules will be loaded from DB on first request.")

@@ -1,0 +1,57 @@
+{% extends "layouts/base.html" %}
+
+{# 根据 action 动态设置标题 #}
+{% block title %}{% if action == 'add' %}添加新规则{% else %}编辑规则 ID: {{ form_data.id }}{% endif %}{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            {# 根据 action 动态设置 H2 标题 #}
+            <h2 class="mb-4">
+                {% if action == 'add' %}
+                    <i class="bi bi-file-earmark-plus"></i> 添加新规则/FAQ
+                {% else %}
+                    <i class="bi bi-pencil-square"></i> 编辑规则/FAQ (ID: {{ form_data.id }})
+                {% endif %}
+            </h2>
+
+            {# 表单提交到当前 URL (即 /rules/add 或 /rules/edit/ID) #}
+            <form method="post">
+                {# 可以添加 CSRF Token (如果使用 Flask-WTF) #}
+                {# {{ form.csrf_token }} #}
+
+                {# 类别输入框 #}
+                <div class="mb-3">
+                    <label for="category" class="form-label">类别:</label>
+                    <input type="text" id="category" name="category" class="form-control" 
+                           value="{{ request.form.category or form_data.get('category', '') }}" 
+                           required placeholder="例如：售后, 商家操作, 通用">
+                    {# value 的逻辑: 优先显示 POST 提交失败后保留的值 (request.form)，其次是编辑时传入的值 (form_data)，最后是空字符串 #}
+                </div>
+
+                {# 问题输入框 (文本域) #}
+                <div class="mb-3">
+                    <label for="question" class="form-label">问题:</label>
+                    <textarea id="question" name="question" class="form-control" rows="3" required>{{ request.form.question or form_data.get('question', '') }}</textarea>
+                     {# textarea 的 value 通过标签内容设置 #}
+                </div>
+
+                {# 答案输入框 (文本域) #}
+                <div class="mb-3">
+                    <label for="answer" class="form-label">答案:</label>
+                    <textarea id="answer" name="answer" class="form-control" rows="6" required>{{ request.form.answer or form_data.get('answer', '') }}</textarea>
+                </div>
+
+                {# 提交按钮和取消链接 #}
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <a href="{{ url_for('admin.list_rules') }}" class="btn btn-secondary me-md-2">取消</a>
+                    <button type="submit" class="btn btn-{% if action == 'add' %}success{% else %}warning{% endif %}">
+                        {% if action == 'add' %}确认添加{% else %}保存更改{% endif %}
+                    </button>
+                     {# 按钮颜色和文字根据 action 变化 #}
+                </div>
+
+            </form>
+        </div>
+    </div>
+{% endblock %}

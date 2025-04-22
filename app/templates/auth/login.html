@@ -1,18 +1,39 @@
-{% extends "layouts/base.html" %} {# [source: 34] #}
-{% block title %}用户登录{% endblock %} {# [source: 34] #}
+{% extends "layouts/base.html" %} 
+{% block title %}用户登录{% endblock %}
 
-{% block content %} {# [source: 34] #}
-    <h2>用户登录</h2>
-    <form method="post"> {# [source: 34] #}
-        <div>
-            <label for="email">邮箱:</label>
-            <input type="email" id="email" name="email" required> {# [source: 35] #}
+{% block content %}
+    <div class="row justify-content-center"> {# 使用网格居中 #}
+        <div class="col-md-6"> {# 控制宽度 #}
+            <h2 class="mb-4">用户登录</h2> {# 增加标题下边距 #}
+            <form method="post">
+                
+                {# 邮箱 #}
+                <div class="mb-3">
+                    <label for="email" class="form-label">邮箱:</label> {# 添加 form-label #}
+                    <input type="email" id="email" name="email" class="form-control" required> {# 添加 form-control #}
+                </div>
+                
+                {# 密码 #}
+                <div class="mb-3">
+                    <label for="password" class="form-label">密码:</label> {# 添加 form-label #}
+                    <input type="password" id="password" name="password" class="form-control" required> {# 添加 form-control #}
+                </div>
+                
+                {# 登录按钮 #}
+                <button type="submit" class="btn btn-primary w-100">登录</button> {# 添加 btn btn-primary w-100 #}
+            
+            </form>
+            
+            {# 注册链接 #}
+            <p class="mt-3 text-center"> 
+                还没有账号？ <a href="{{ url_for('auth.register') }}">立即注册</a>
+            </p>
+            
+            {# (可选) 添加忘记密码链接占位符 #}
+            {# <p class="text-center small">
+                <a href="#">忘记密码?</a> 
+            </p> #}
+            
         </div>
-        <div>
-            <label for="password">密码:</label>
-            <input type="password" id="password" name="password" required> {# [source: 35] #}
-        </div>
-        <button type="submit">登录</button> {# [source: 35] #}
-    </form>
-    <p>还没有账号？ <a href="{{ url_for('auth.register') }}">立即注册</a></p> {# [source: 36] #}
-{% endblock %} {# [source: 36] #}
+    </div>
+{% endblock %}

@@ -48,6 +48,9 @@ def create_app():
     app.register_blueprint(seller_blueprint, url_prefix='/seller')
     from .routes.qa import qa as qa_blueprint
     app.register_blueprint(qa_blueprint, url_prefix='/qa')
+    from .routes.admin import admin as admin_blueprint
+    app.register_blueprint(admin_blueprint, url_prefix='/admin') # 给管理后台 URL 加上 /admin 前缀
+
     # --- 蓝图注册结束 ---
 
     return app
