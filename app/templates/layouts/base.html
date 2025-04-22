@@ -23,7 +23,7 @@
             overflow-y: auto; /* 悬停时允许滚动 */
         }
         /* 确保内容区不会被固定页脚遮挡 */
-        main.container { margin-bottom: 100px; } 
+        main.container { margin-bottom: 100px; }
     </style>
 </head>
 <body>
@@ -44,37 +44,41 @@
                 {# 可以在这里添加其他公共导航链接，例如商品分类等 #}
                 {# <li class="nav-item"> <a class="nav-link" href="#">所有商品</a> </li> #}
               </ul>
-              <ul class="navbar-nav"> 
+              <ul class="navbar-nav">
                 {% if current_user.is_authenticated %}
-                  <li class="nav-item dropdown"> 
+                  <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownUserLink" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                       <i class="bi bi-person-circle"></i> 你好, {{ current_user.username }}!
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownUserLink">
-                      <li><a class="dropdown-item {% if request.endpoint == 'main.profile' %}active{% endif %}" href="{{ url_for('main.profile') }}"><i class="bi bi-person-lines-fill"></i> 个人资料</a></li> 
-                      
-                      {# === 修改点：添加 Admin 入口 === #}
+                      <li><a class="dropdown-item {% if request.endpoint == 'main.profile' %}active{% endif %}" href="{{ url_for('main.profile') }}"><i class="bi bi-person-lines-fill"></i> 个人资料</a></li>
+
+                      {# === 管理员专属菜单项 === #}
                       {% if current_user.role == 'admin' %}
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item {% if request.blueprint == 'admin' %}active{% endif %}" href="{{ url_for('admin.list_rules') }}"><i class="bi bi-gear-fill"></i> 管理后台</a></li> 
+                        <li><a class="dropdown-item {% if request.endpoint == 'admin.list_rules' %}active{% endif %}" href="{{ url_for('admin.list_rules') }}"><i class="bi bi-gear-fill"></i> 规则管理</a></li>
+                        <li><a class="dropdown-item {% if request.endpoint == 'admin.list_users' %}active{% endif %}" href="{{ url_for('admin.list_users') }}"><i class="bi bi-people"></i> 用户管理</a></li>
+                        {# --- vvvvvv 这是新添加的商品管理链接 vvvvvv --- #}
+                        <li><a class="dropdown-item {% if request.endpoint == 'admin.list_all_products' %}active{% endif %}" href="{{ url_for('admin.list_all_products') }}"><i class="bi bi-box-seam"></i> 商品管理</a></li>
+                        {# --- ^^^^^^ 新添加的行结束 ^^^^^^ --- #}
                       {% endif %}
-                      {# === Admin 入口结束 === #}
+                      {# === 管理员菜单项结束 === #}
 
                       {% if current_user.role == 'seller' %}
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item {% if request.blueprint == 'seller' %}active{% endif %}" href="{{ url_for('seller.dashboard') }}"><i class="bi bi-shop"></i> 商家中心</a></li> 
+                        <li><a class="dropdown-item {% if request.blueprint == 'seller' %}active{% endif %}" href="{{ url_for('seller.dashboard') }}"><i class="bi bi-shop"></i> 商家中心</a></li>
                       {% endif %}
-                      
+
                       <li><hr class="dropdown-divider"></li>
-                      <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> 退出登录</a></li> 
+                      <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> 退出登录</a></li>
                     </ul>
                   </li>
                 {% else %}
                   <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'auth.register' %}active{% endif %}" href="{{ url_for('auth.register') }}">注册</a> 
+                    <a class="nav-link {% if request.endpoint == 'auth.register' %}active{% endif %}" href="{{ url_for('auth.register') }}">注册</a>
                   </li>
                   <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}" href="{{ url_for('auth.login') }}">登录</a> 
+                    <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}" href="{{ url_for('auth.login') }}">登录</a>
                   </li>
                 {% endif %}
               </ul>
@@ -89,9 +93,9 @@
             {% if messages %}
                 {% for category, message in messages %}
                     {% set alert_type = 'success' if category == 'success' else 'danger' if category == 'error' else 'info' %}
-                    <div class="alert alert-{{ alert_type }} alert-dismissible fade show mt-3" role="alert"> 
+                    <div class="alert alert-{{ alert_type }} alert-dismissible fade show mt-3" role="alert">
                         {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button> 
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -99,7 +103,7 @@
     </div>
 
     {# === 主体内容区域，使用 Bootstrap 容器 === #}
-    <main class="container mt-4"> 
+    <main class="container mt-4">
         {% block content %}
         {# 子模板的内容会在这里填充 #}
         {% endblock %}
@@ -107,12 +111,12 @@
 
     {# === 智能问答助手区域 (固定在底部) === #}
     <div class="container fixed-bottom bg-body-tertiary border-top pt-3 qa-fixed-bottom shadow-lg"> {# 使用 bg-body-tertiary 适应主题，添加阴影 #}
-         <h5><i class="bi bi-robot"></i> 智能问答助手</h5> 
-         <div class="input-group mb-2"> 
-             <input type="text" id="qa-input" class="form-control form-control-sm" placeholder="有问题问 AI..." aria-label="问答输入框"> 
-             <button class="btn btn-sm btn-primary" type="button" id="qa-button"><i class="bi bi-send"></i> 发送</button> 
+         <h5><i class="bi bi-robot"></i> 智能问答助手</h5>
+         <div class="input-group mb-2">
+             <input type="text" id="qa-input" class="form-control form-control-sm" placeholder="有问题问 AI..." aria-label="问答输入框">
+             <button class="btn btn-sm btn-primary" type="button" id="qa-button"><i class="bi bi-send"></i> 发送</button>
          </div>
-         <div id="qa-status" class="text-muted small mb-1" style="min-height: 1.2em;"></div> 
+         <div id="qa-status" class="text-muted small mb-1" style="min-height: 1.2em;"></div>
          <div id="qa-answer" class="alert alert-light alert-sm small p-2 border" role="alert" style="min-height: 40px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; margin-bottom: 10px; background-color: #f8f9fa;"> {# 使用更浅的背景 #}
              你好！有什么可以帮你的吗？
          </div>
@@ -126,7 +130,7 @@
     </footer>
 
     {# === 引入 Bootstrap JS (必须放在 </body> 前) === #}
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
     {# ====================================================== #}
     {# !!! 下面是处理问答交互的 JavaScript 代码 (已修改) !!! #}
@@ -176,10 +180,10 @@
                 // === 检查并添加 product_id ===
                 const productIdInput = document.getElementById('product-id-context');
                 if (productIdInput && productIdInput.value) {
-                    requestData.product_id = productIdInput.value; 
-                    console.log("提问上下文中包含商品ID:", requestData.product_id); 
+                    requestData.product_id = productIdInput.value;
+                    console.log("提问上下文中包含商品ID:", requestData.product_id);
                 } else {
-                    console.log("当前页面没有找到 product-id-context，按通用问题处理。"); 
+                    console.log("当前页面没有找到 product-id-context，按通用问题处理。");
                 }
                 // === 检查并添加 context_type (例如来自商家后台) ===
                 const contextTypeInput = document.getElementById('context-type'); // 查找 id='context-type' 的隐藏输入框
@@ -192,7 +196,7 @@
                 fetch('/qa/ask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestData) 
+                    body: JSON.stringify(requestData)
                 })
                 .then(response => {
                     if (!response.ok) {
@@ -206,7 +210,7 @@
                 })
                 .then(data => {
                     console.log("收到后端数据:", data);
-                    qaStatus.innerHTML = ''; // 清空加载状态 
+                    qaStatus.innerHTML = ''; // 清空加载状态
                     if (data && data.answer) {
                         qaAnswerDiv.textContent = data.answer;
                         qaAnswerDiv.scrollTop = 0; // 回答后滚动到顶部
@@ -216,7 +220,7 @@
                 })
                 .catch(error => {
                     console.error('请求 AI 回答时出错:', error);
-                    qaStatus.innerHTML = ''; // 清空加载状态 
+                    qaStatus.innerHTML = ''; // 清空加载状态
                     qaAnswerDiv.textContent = `获取回答失败: ${error.message}. 请检查网络或联系管理员。`;
                 })
                 .finally(() => {

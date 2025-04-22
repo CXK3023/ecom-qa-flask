@@ -1,0 +1,77 @@
+{# app/templates/admin/users_list.html #}
+{% extends "layouts/base.html" %} {# 告诉这个页面要使用我们网站的基础样式和导航栏 #}
+
+{% block title %}用户管理{% endblock %} {# 设置浏览器标签页上显示的标题 #}
+
+{% block content %} {# 这里是页面的主要内容 #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-people-fill"></i> 用户管理</h2> {# 页面大标题，加个小图标 #}
+        {# 这里以后可以放“添加新用户”按钮，但我们暂时不做手动添加 #}
+    </div>
+
+    {# 首先检查一下有没有用户数据传过来 #}
+    {% if users %} 
+        {# 如果有用户数据，就用一个表格来显示 #}
+        <div class="table-responsive"> {# 让表格在小屏幕上可以左右滚动 #}
+            <table class="table table-striped table-hover table-bordered table-sm"> {# 使用 Bootstrap 的表格样式，让它好看点 #}
+                <thead class="table-dark"> {# 表格的标题行，用深色背景 #}
+                    <tr>
+                        <th scope="col">ID</th>      {# 列标题：用户ID #}
+                        <th scope="col">用户名</th>  {# 列标题：用户名 #}
+                        <th scope="col">邮箱</th>    {# 列标题：邮箱 #}
+                        <th scope="col">角色</th>    {# 列标题：角色 #}
+                        <th scope="col">操作</th>    {# 列标题：可以进行的操作 #}
+                    </tr>
+                </thead>
+                <tbody> {# 表格的主体内容 #}
+                    {# 这里开始循环，users 是我们从 Python 代码传过来的用户列表 #}
+                    {# 对于列表里的每一个用户(user)，都生成一行 (<tr>) #}
+                    {% for user in users %} 
+                        <tr>
+                            <th scope="row">{{ user.id }}</th> {# 显示用户ID #}
+                            <td>{{ user.username }}</td>      {# 显示用户名 #}
+                            <td>{{ user.email }}</td>        {# 显示邮箱 #}
+                            <td>
+                                {# 根据用户的角色，显示不同颜色的小标签，更醒目 #}
+                                <span class="badge bg-{% if user.role == 'admin' %}danger{% elif user.role == 'seller' %}warning{% else %}secondary{% endif %}">
+                                    {{ user.role }}
+                                </span>
+                            </td>
+                            <td> {# 操作按钮列 #}
+                                {# “查看”按钮：点击后会跳转到我们 *稍后* 创建的 /admin/users/view/用户ID 页面 #}
+                                <a href="{{ url_for('admin.view_user', user_id=user.id) }}" class="btn btn-sm btn-outline-info me-1" title="查看详情">
+                                    <i class="bi bi-eye"></i> 查看
+                                </a>
+                                {# “编辑角色”按钮：点击后会跳转到我们 *稍后* 创建的 /admin/users/edit/用户ID 页面 #}
+                                <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="btn btn-sm btn-outline-secondary me-1" title="编辑角色">
+                                    <i class="bi bi-person-gear"></i> 编辑角色
+                                </a>
+
+                                {# “重置密码”按钮：需要放在一个表单里，因为它是危险操作，要用 POST 方法提交 #}
+                                <form method="post" action="{{ url_for('admin.reset_user_password', user_id=user.id) }}" style="display: inline;"> {# display: inline 让表单不换行 #}
+                                    <button type="submit" class="btn btn-sm btn-outline-warning me-1" title="重置密码为 'Password123'"
+                                            onclick="return confirm('确定要将用户 {{ user.username | escape }} 的密码重置为 `Password123` 吗？请立即通知用户！');"> {# 点击时弹出确认框 #}
+                                        <i class="bi bi-key-fill"></i> 重置密码
+                                    </button>
+                                </form>
+
+                                {# “删除”按钮：同样需要放在表单里，用 POST 方法提交 #}
+                                <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="删除用户"
+                                            {% if user.id == current_user.id %}disabled{% endif %} {# 如果是管理员自己，禁用删除按钮 #}
+                                            onclick="return confirm('警告：确定要永久删除用户 {{ user.username | escape }} (ID: {{ user.id }}) 吗？\n此操作非常危险且无法撤销！请确认该用户没有重要关联数据。');"> {# 非常重要的警告确认框 #}
+                                        <i class="bi bi-person-x-fill"></i> 删除
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %} {# 结束循环 #}
+                </tbody>
+            </table>
+        </div>
+    {% else %} {# 如果 users 列表是空的 (比如还没有用户注册) #}
+        <div class="alert alert-info" role="alert">
+            系统中还没有注册用户。
+        </div>
+    {% endif %} {# 结束 if 判断 #}
+{% endblock %} {# 结束 content 主要内容区域 #}

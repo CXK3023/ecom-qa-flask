@@ -1,0 +1,87 @@
+{# app/templates/admin/products_list.html #}
+{% extends "layouts/base.html" %}
+
+{% block title %}商品管理 (管理员){% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-box-seam-fill"></i> 商品管理 (所有商品)</h2>
+        {# 这里以后可以加搜索或筛选功能 #}
+    </div>
+
+    {% if products_with_sellers %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-bordered table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">商品名称</th>
+                        <th scope="col">卖家</th>
+                        <th scope="col">价格</th>
+                        <th scope="col">库存</th>
+                        <th scope="col">状态</th> {# 新增状态列 #}
+                        <th scope="col">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {# 循环我们从 Python 传过来的列表 products_with_sellers #}
+                    {# 注意：列表里每一项 item 是一个元组 (Product对象, 卖家用户名) #}
+                    {# 所以要用 item[0] 获取 Product 对象，item[1] 获取卖家用户名 #}
+                    {% for product, seller_username in products_with_sellers %}
+                        <tr>
+                            <th scope="row">{{ product.id }}</th>
+                            <td>{{ product.name }}</td>
+                            <td>{{ seller_username }}</td> {# 显示卖家用户名 #}
+                            <td>￥{{ "%.2f"|format(product.price) }}</td>
+                            <td>{{ product.stock }}</td>
+                            <td>
+                                {# 根据商品状态显示不同颜色的小标签 #}
+                                {% if product.status == 'active' %}
+                                    <span class="badge bg-success">上架中</span>
+                                {% elif product.status == 'inactive' %}
+                                    <span class="badge bg-secondary">已下架</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ product.status }}</span> {# 其他未知状态用黄色 #}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {# 编辑按钮: 指向 *将来* 要做的 /admin/products/edit/商品ID #}
+                                <a href="{{ url_for('admin.edit_product', product_id=product.id) }}" class="btn btn-sm btn-outline-secondary me-1" title="编辑商品">
+                                    <i class="bi bi-pencil-square"></i> 编辑
+                                </a>
+
+                                {# 切换状态按钮: 根据当前状态显示不同文字和样式 #}
+                                {# 指向 *将来* 要做的 /admin/products/toggle_status/商品ID (用 POST) #}
+                                <form method="post" action="{{ url_for('admin.toggle_product_status', product_id=product.id) }}" style="display: inline;">
+                                    {% if product.status == 'active' %}
+                                        <button type="submit" class="btn btn-sm btn-outline-warning me-1" title="将商品下架"
+                                                onclick="return confirm('确定要下架商品 “{{ product.name | escape }}” 吗？下架后用户将无法在前台看到。');">
+                                            <i class="bi bi-arrow-down-square"></i> 下架
+                                        </button>
+                                    {% else %}
+                                        <button type="submit" class="btn btn-sm btn-outline-success me-1" title="将商品上架"
+                                                 onclick="return confirm('确定要上架商品 “{{ product.name | escape }}” 吗？');">
+                                            <i class="bi bi-arrow-up-square"></i> 上架
+                                        </button>
+                                    {% endif %}
+                                </form>
+
+                                {# 删除按钮: 指向 *将来* 要做的 /admin/products/delete/商品ID (用 POST) #}
+                                <form method="post" action="{{ url_for('admin.delete_product', product_id=product.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="永久删除商品"
+                                            onclick="return confirm('警告：确定要永久删除商品 “{{ product.name | escape }}” (ID: {{ product.id }}) 吗？\n此操作无法撤销！');">
+                                        <i class="bi bi-trash3-fill"></i> 删除
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            系统中还没有任何商品。
+        </div>
+    {% endif %}
+{% endblock %}

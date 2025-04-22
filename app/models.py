@@ -38,10 +38,20 @@ class Product(db.Model):
     seller_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     # 'user.id' 指向 User 模型的 id 字段
 
+    # --- vvvvvv 这是新添加的行 vvvvvv ---
+    status = db.Column(db.String(20), nullable=False, default='active', index=True)
+    # status 字段：字符串类型，不能为空，默认为 'active' (上架)，加索引方便查询
+    # --- ^^^^^^ 新添加的行结束 ^^^^^^ ---
+
     # 关系: 建立 User 和 Product 之间的联系
     # 这样可以通过 product.seller 找到卖家用户,
     # 或者通过 user.products 找到该用户的所有商品
     seller = db.relationship('User', backref=db.backref('products', lazy=True))
+
+    # (可选) 添加一个方便判断状态的属性
+    @property
+    def is_active(self):
+        return self.status == 'active'
 
     def __repr__(self):
         return f'<Product {self.name}>'
@@ -53,8 +63,8 @@ def load_user(user_id):
     # User.query.get 是 SQLAlchemy 提供的方法，通过主键(id)查找用户
     return User.query.get(int(user_id))
 
-# --- 规则/FAQ 模型 --- 
-class FaqRule(db.Model): # [source: 137] 取消注释
+# --- 规则/FAQ 模型 ---
+class FaqRule(db.Model): # [source: 137] 这行保持不变
     """规则/FAQ 数据模型"""
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(50), index=True) # 给 category 加索引方便查询

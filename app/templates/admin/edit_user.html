@@ -1,0 +1,36 @@
+{# app/templates/admin/edit_user.html #}
+{% extends "layouts/base.html" %} {# 继承基础布局 #}
+
+{% block title %}编辑用户角色 - {{ user.username }}{% endblock %} {# 页面标题 #}
+
+{% block content %} {# 主要内容 #}
+    <h2><i class="bi bi-person-fill-gear"></i> 编辑用户角色: {{ user.username }}</h2> {# 页面主标题 #}
+    <p><strong>当前角色:</strong> {{ user.role }}</p> {# 显示用户当前的角色 #}
+
+    {# 使用 Bootstrap 网格系统居中显示表单 #}
+    <div class="row justify-content-center mt-4">
+        <div class="col-md-6"> {# 控制表单宽度 #}
+            {# 表单提交到当前页面的 URL (Flask 会自动处理 GET 和 POST) #}
+            <form method="post">
+                {# 角色选择下拉菜单 #}
+                <div class="mb-3">
+                    <label for="role" class="form-label">选择新角色:</label>
+                    <select id="role" name="role" class="form-select" required>
+                        {# selected 属性会让浏览器默认选中用户的当前角色 #}
+                        <option value="buyer" {% if user.role == 'buyer' %}selected{% endif %}>买家 (Buyer)</option>
+                        <option value="seller" {% if user.role == 'seller' %}selected{% endif %}>商家 (Seller)</option>
+                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>管理员 (Admin)</option>
+                    </select>
+                </div>
+
+                {# 操作按钮 #}
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    {# “取消”按钮，链接回用户列表页面 #}
+                    <a href="{{ url_for('admin.list_users') }}" class="btn btn-secondary me-md-2">取消</a>
+                    {# “保存更改”按钮，提交表单 #}
+                    <button type="submit" class="btn btn-warning">保存更改</button> {# 使用黄色按钮表示编辑保存 #}
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %} {# 结束主要内容 #}
