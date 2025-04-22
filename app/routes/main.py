@@ -9,8 +9,8 @@ main = Blueprint('main', __name__) # [source: 39]
 @main.route('/') # 网站根路径 # [source: 39]
 def index():
     """网站首页，显示所有商品列表""" # [source: 36]
-    # 查询数据库中所有的商品, 按 ID 降序排列
-    all_products = Product.query.order_by(Product.id.desc()).all() # [source: 36]
+   # 查询数据库中所有状态为 'active' 的商品, 按 ID 降序排列
+    all_products = Product.query.filter_by(status='active').order_by(Product.id.desc()).all()
     # 把查询到的所有商品列表传递给模板，模板里用 'products' 这个名字来接收
     return render_template('main/index.html', products=all_products) # [source: 36]
 
