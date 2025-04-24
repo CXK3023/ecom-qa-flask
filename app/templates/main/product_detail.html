@@ -28,7 +28,7 @@
             <hr> {# 分隔线 #}
             <p><strong>商品描述:</strong></p>
             {# 使用 nl2br 过滤器将描述文本中的换行符转换为 HTML 的 <br> 标签，保留换行 #}
-            <p>{{ product.description | nl2br }}</p> {# [source: 189] #}
+            <p>{{ product.description | nl2br }}</p> {# [cite: 89] #}
             <hr> {# 分隔线 #}
              <p><a href="{{ url_for('main.index') }}" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> 返回商品列表</a></p> {# 返回按钮样式 #}
         </div>
@@ -36,26 +36,20 @@
 
 
     {# --- 问答区域 --- #}
-    {# 将基础问答框放在这里，并针对当前商品提问 #}
     <div class="qa-section mt-4 p-4 border rounded bg-light shadow-sm">
-        <h3 class="mb-3"><i class="bi bi-patch-question"></i> 关于 “{{ product.name }}” 的问题？问问 AI 助手</h3> {# 添加了 Bootstrap 间距类 mb-3 #}
-        {# 使用 Bootstrap 的 input-group 让输入框和按钮更好看地组合在一起 #}
-        <div class="input-group mb-3"> {# [source: 239] #}
-            {# 添加 form-control 类美化输入框 #}
-            <input type="text" id="qa-input-detail" class="form-control" placeholder="输入关于本商品的问题..." aria-label="商品问题输入框"> {# [source: 240] #} {# 注意：修改 ID 避免冲突 #}
-            {# 添加 btn 和 btn-primary 类美化按钮 #}
-            <button class="btn btn-primary" type="button" id="qa-button-detail">发送提问</button> {# [source: 240] #} {# 注意：修改 ID 避免冲突 #}
+        <h3 class="mb-3"><i class="bi bi-patch-question"></i> 关于 “{{ product.name }}” 的问题？问问 AI 助手</h3>
+        <div class="input-group mb-3">
+            <input type="text" id="qa-input-detail" class="form-control" placeholder="输入关于本商品的问题..." aria-label="商品问题输入框"> {# #}
+            <button class="btn btn-primary" type="button" id="qa-button-detail">发送提问</button> {# #}
         </div>
-        {# 状态显示区域，添加 text-muted 类使其颜色变淡 #}
-        <div id="qa-status-detail" class="text-muted mb-2" style="min-height: 1.5em;"></div> {# [source: 240] 添加最小高度防止跳动 #} {# 注意：修改 ID 避免冲突 #}
-        {# 答案显示区域，使用 Bootstrap 的 alert 样式 #}
-        <div id="qa-answer-detail" class="alert alert-light border" role="alert" style="min-height: 60px; white-space: pre-wrap; background-color: #ffffff;"> {# [source: 240] white-space: pre-wrap 保留 AI 回答的换行 #} {# 注意：修改 ID 避免冲突 #}
+        <div id="qa-status-detail" class="text-muted mb-2" style="min-height: 1.5em;"></div> {# #}
+        <div id="qa-answer-detail" class="alert alert-light border" role="alert" style="min-height: 60px; white-space: pre-wrap; background-color: #ffffff;"> {# #}
             请在此提问，我会尽力根据商品信息和平台规则回答。
         </div>
     </div>
     {# --- 问答区域结束 --- #}
 
-    {# --- 处理详情页问答的独立 JS --- #}
+    {# --- 处理详情页问答的独立 JS (多轮对话版) --- #}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const qaInput = document.getElementById('qa-input-detail');
@@ -63,6 +57,9 @@
             const qaStatus = document.getElementById('qa-status-detail');
             const qaAnswerDiv = document.getElementById('qa-answer-detail');
             const productIdInput = document.getElementById('product-id-context'); // 获取商品ID输入框
+
+            // === 新增：为详情页问答框维护独立的对话历史 ===
+            let detailConversationHistory = [];
 
             function handleDetailQuestionSubmit() {
                 if (!qaInput || !qaButton || !qaStatus || !qaAnswerDiv || !productIdInput) {
@@ -75,15 +72,21 @@
                     setTimeout(() => { if(qaStatus.textContent === '请输入关于本商品的问题！') qaStatus.textContent = ''; }, 2000);
                     return;
                 }
-                qaAnswerDiv.textContent = '';
+                // qaAnswerDiv.textContent = ''; // 同样不清空旧答案
                 qaStatus.innerHTML = `<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">思考中...</span></div><span class="ms-1 small">正在思考中...</span>`;
                 qaButton.disabled = true;
                 qaInput.disabled = true;
+                qaInput.value = ''; // 清空输入框
 
+                // 准备请求数据
                 let requestData = {
                     question: questionText,
-                    product_id: productIdInput.value // 直接添加商品ID
+                    product_id: productIdInput.value, // 直接添加商品ID
+                    // === 新增：发送详情页的对话历史 ===
+                    history: detailConversationHistory
                 };
+
+                console.log("发送详情页提问数据:", JSON.stringify(requestData));
 
                 fetch('/qa/ask', { // 发送到同一个QA端点
                     method: 'POST',
@@ -91,13 +94,27 @@
                     body: JSON.stringify(requestData)
                 })
                 .then(response => {
-                    if (!response.ok) { throw new Error(`请求失败: ${response.status}`); }
+                    if (!response.ok) {
+                         return response.json().then(errData => {
+                             throw new Error(errData.error || `请求失败，状态码: ${response.status}`);
+                         }).catch(() => {
+                             throw new Error(`请求失败，状态码: ${response.status}`);
+                         });
+                     }
                     return response.json();
                  })
                 .then(data => {
+                    console.log("收到详情页后端数据:", data);
                     qaStatus.innerHTML = '';
-                    qaAnswerDiv.textContent = data.answer || '未能获取回答。';
-                    qaAnswerDiv.scrollTop = 0;
+                    if (data && data.answer) {
+                        qaAnswerDiv.textContent = data.answer; // 显示最新答案
+                        // === 新增：更新详情页的对话历史 ===
+                        detailConversationHistory = data.history || [];
+                        console.log("详情页本地对话历史已更新，包含", detailConversationHistory.length, "条消息");
+                    } else {
+                        qaAnswerDiv.textContent = '未能获取回答。';
+                    }
+                    qaAnswerDiv.scrollTop = qaAnswerDiv.scrollHeight; // 滚动到底部
                 })
                 .catch(error => {
                     console.error('详情页提问出错:', error);

@@ -79,7 +79,7 @@
     {% endif %} {# 结束 if products #}
 
 
-    {# === 商家专属问答区域 (保持不变) === #}
+    {# === 商家专属问答区域 (保持不变的 HTML 结构) === #}
     <hr class="my-5"> {# 添加较宽的分割线 #}
     <div class="card bg-light mb-4 shadow-sm">
         <div class="card-header bg-info text-white">
@@ -87,7 +87,7 @@
         </div>
         <div class="card-body">
             <p class="card-text small text-muted">在这里提问关于后台功能、商品管理、订单处理等操作问题。</p>
-            <input type="hidden" id="context-type" value="seller_help">
+            <input type="hidden" id="context-type" value="seller_help"> {# 这个隐藏字段依然需要 #}
             <div class="input-group mb-2">
                 <span class="input-group-text"><i class="bi bi-question-circle"></i></span>
                 <input type="text" id="seller-qa-input" class="form-control" placeholder="例如：如何添加商品规格？">
@@ -102,15 +102,19 @@
     {# === 商家专属问答区域结束 === #}
 
 
-    {# === 处理商家问答区的 JavaScript (保持不变) === #}
+    {# === 处理商家问答区的 JavaScript (多轮对话版) === #}
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        console.log("商家仪表盘脚本加载...");
+        console.log("商家仪表盘脚本加载 (多轮对话版)...");
         const sellerQaInput = document.getElementById('seller-qa-input');
         const sellerQaButton = document.getElementById('seller-qa-button');
         const sellerQaStatus = document.getElementById('seller-qa-status');
         const sellerQaAnswerDiv = document.getElementById('seller-qa-answer');
         const contextTypeInput = document.getElementById('context-type');
+
+        // === 新增：为商家问答框维护独立的对话历史 ===
+        let sellerConversationHistory = [];
+
         function handleSellerQuestionSubmit() {
             console.log("商家提问按钮点击！");
             if (!sellerQaInput || !sellerQaButton || !sellerQaStatus || !sellerQaAnswerDiv || !contextTypeInput) {
@@ -123,28 +127,49 @@
                  setTimeout(() => { if(sellerQaStatus.textContent === '请输入你的操作问题！') sellerQaStatus.textContent = ''; }, 2000);
                 return;
             }
-            sellerQaAnswerDiv.textContent = '';
+            // sellerQaAnswerDiv.textContent = ''; // 不清空旧答案
             sellerQaStatus.innerHTML = `<div class="spinner-border spinner-border-sm text-info" role="status"><span class="visually-hidden">处理中...</span></div><span class="ms-1 small">正在处理中...</span>`;
             sellerQaButton.disabled = true;
             sellerQaInput.disabled = true;
+            sellerQaInput.value = ''; // 清空输入框
+
+            // 准备请求数据
             let requestData = {
                 question: questionText,
-                context_type: contextTypeInput.value
+                context_type: contextTypeInput.value, // 仍然发送 context_type
+                // === 新增：发送商家问答框的对话历史 ===
+                history: sellerConversationHistory
             };
-            console.log("发送商家帮助请求:", requestData);
+
+            console.log("发送商家帮助请求数据:", JSON.stringify(requestData));
+
             fetch('/qa/ask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestData)
             })
             .then(response => {
-                if (!response.ok) { throw new Error(`请求失败: ${response.status}`); }
+                 if (!response.ok) {
+                     return response.json().then(errData => {
+                         throw new Error(errData.error || `请求失败，状态码: ${response.status}`);
+                     }).catch(() => {
+                         throw new Error(`请求失败，状态码: ${response.status}`);
+                     });
+                 }
                 return response.json();
              })
             .then(data => {
+                console.log("收到商家帮助后端数据:", data);
                 sellerQaStatus.innerHTML = '';
-                sellerQaAnswerDiv.textContent = data.answer || '未能获取回答。';
-                sellerQaAnswerDiv.scrollTop = 0;
+                if (data && data.answer) {
+                    sellerQaAnswerDiv.textContent = data.answer; // 显示最新答案
+                    // === 新增：更新商家问答框的对话历史 ===
+                    sellerConversationHistory = data.history || [];
+                    console.log("商家问答本地对话历史已更新，包含", sellerConversationHistory.length, "条消息");
+                } else {
+                    sellerQaAnswerDiv.textContent = '未能获取回答。';
+                }
+                sellerQaAnswerDiv.scrollTop = sellerQaAnswerDiv.scrollHeight; // 滚动到底部
             })
             .catch(error => {
                 console.error('商家提问出错:', error);
@@ -157,6 +182,7 @@
                 sellerQaInput.focus();
             });
         }
+
         if (sellerQaButton) {
             sellerQaButton.addEventListener('click', handleSellerQuestionSubmit);
              console.log("已为 sellerQaButton 添加点击事件监听器。");
