@@ -9,8 +9,11 @@
 
     <div class="row justify-content-center mt-3">
         <div class="col-md-8">
+            {# === vvv MODIFY: Add enctype for file uploads vvv === #}
             {# 表单提交到当前 URL (/admin/products/edit/商品ID) #}
-            <form method="post">
+            <form method="post" enctype="multipart/form-data">
+            {# === ^^^ MODIFY ^^^ === #}
+
                 {# 商品名称 #}
                 <div class="mb-3">
                     <label for="name" class="form-label">商品名称:</label>
@@ -39,16 +42,33 @@
                     <input type="number" id="stock" name="stock" class="form-control" value="{{ request.form.stock or product.stock }}" required>
                 </div>
 
-                {# (可选) 如果允许管理员直接改状态，可以在这里加个下拉菜单 #}
-                {#
+                {# === vvv NEW: Product Image Upload/Edit vvv === #}
                 <div class="mb-3">
-                    <label for="status" class="form-label">商品状态:</label>
-                    <select id="status" name="status" class="form-select">
-                        <option value="active" {% if (request.form.status or product.status) == 'active' %}selected{% endif %}>上架中 (active)</option>
-                        <option value="inactive" {% if (request.form.status or product.status) == 'inactive' %}selected{% endif %}>已下架 (inactive)</option>
-                    </select>
+                    <label for="product_image" class="form-label">商品图片:</label>
+                    {# 显示当前图片 #}
+                    {% if product.image_url %}
+                        <div class="mb-2">
+                            <img src="{{ url_for('static', filename='uploads/products/' + product.image_url) }}" alt="{{ product.name }}" style="max-height: 100px; max-width: 100px; border-radius: 5px;">
+                             <div class="form-check mt-1">
+                                <input class="form-check-input" type="checkbox" value="1" id="remove_image" name="remove_image">
+                                <label class="form-check-label small text-danger" for="remove_image">
+                                    删除当前图片 (选择此项并保存将移除图片)
+                                </label>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="text-muted small">当前未设置图片</p>
+                    {% endif %}
+                    {# 上传新图片 #}
+                    <input class="form-control" type="file" id="product_image" name="product_image" accept="image/png, image/jpeg, image/jpg, image/gif">
+                     <div class="form-text">
+                        上传新图片会覆盖当前图片。允许的格式: png, jpg, jpeg, gif。
+                    </div>
                 </div>
-                #}
+                {# === ^^^ NEW ^^^ === #}
+
+                {# (可选) 如果允许管理员直接改状态，可以在这里加个下拉菜单 #}
+                {# ... status select dropdown ... #}
 
                 {# 提交按钮 #}
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">

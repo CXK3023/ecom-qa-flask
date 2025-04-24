@@ -4,7 +4,14 @@
 {% block title %}用户详情 - {{ user.username }}{% endblock %} {# 页面标题 #}
 
 {% block content %} {# 主要内容 #}
-    <h2><i class="bi bi-person-badge"></i> 用户详情: {{ user.username }}</h2> {# 大标题 #}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+         <h2><i class="bi bi-person-badge"></i> 用户详情: {{ user.username }}</h2> {# 大标题 #}
+         <div>
+             <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="btn btn-sm btn-outline-primary me-2"><i class="bi bi-pencil-square"></i> 编辑用户角色</a>
+             <a href="{{ url_for('admin.list_users') }}" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> 返回用户列表</a>
+         </div>
+    </div>
+
 
     {# 使用 Bootstrap Card 显示基本信息 #}
     <div class="card mb-4">
@@ -15,16 +22,12 @@
             <li class="list-group-item"><strong>邮箱:</strong> {{ user.email }}</li>
             <li class="list-group-item"><strong>角色:</strong>
                 {# 还是用小标签显示角色 #}
-                <span class="badge bg-{% if user.role == 'admin' %}danger{% elif user.role == 'seller' %}warning{% else %}secondary{% endif %}">
-                    {{ user.role }}
+                <span class="badge bg-{% if user.role == 'admin' or user.id == 1 %}danger{% elif user.role == 'seller' %}warning{% else %}secondary{% endif %}">
+                     {# Also consider ID 1 as admin for display #}
+                    {% if user.id == 1 and user.role != 'admin' %}Admin (ID=1){% else %}{{ user.role }}{% endif %}
                 </span>
             </li>
         </ul>
-        <div class="card-footer">
-             {# 添加返回和编辑按钮 #}
-            <a href="{{ url_for('admin.list_users') }}" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> 返回用户列表</a>
-            <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-square"></i> 编辑用户角色</a>
-        </div>
     </div>
 
     {# 如果这个用户是卖家，就显示他的商品列表 #}
@@ -36,19 +39,37 @@
                 <div class="list-group list-group-flush">
                     {# 循环显示每个商品 #}
                     {% for product in products %}
-                        {# 让每个商品项成为一个链接，指向 *将来* 要做的管理员编辑商品页面 #}
-                        <a href="{{ url_for('admin.edit_product', product_id=product.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                            <span>
-                                {{ product.name }} (ID: {{ product.id }}) - ￥{{ "%.2f"|format(product.price) }} - 库存: {{ product.stock }}
-                                {# 显示商品状态 (我们下一步会给 Product 模型添加 status 字段) #}
-                                {% if product.status == 'active' %}
-                                    <span class="badge bg-success ms-2">上架中</span>
+                         {# 使用 d-flex 让内容和管理按钮分开 #}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                             {# 商品信息部分 #}
+                            <div class="d-flex align-items-center">
+                                 {# === vvv NEW: Display Image vvv === #}
+                                {% if product.image_url %}
+                                    <img src="{{ url_for('static', filename='uploads/products/' + product.image_url) }}" alt="{{ product.name }}" class="me-3 rounded" style="width: 45px; height: 45px; object-fit: cover;">
                                 {% else %}
-                                     <span class="badge bg-secondary ms-2">已下架</span>
+                                    <div class="me-3 rounded bg-light d-flex justify-content-center align-items-center" style="width: 45px; height: 45px; border: 1px solid #dee2e6;">
+                                        <i class="bi bi-image text-muted"></i>
+                                    </div>
                                 {% endif %}
-                            </span>
-                            <span class="badge bg-primary rounded-pill"><i class="bi bi-pencil"></i> 管理</span>
-                        </a>
+                                {# === ^^^ NEW ^^^ === #}
+                                <div>
+                                    <h6 class="mb-0">{{ product.name }} (ID: {{ product.id }})</h6>
+                                    <small>￥{{ "%.2f"|format(product.price) }} - 库存: {{ product.stock }} -
+                                        {% if product.status == 'active' %}
+                                            <span class="badge bg-success">上架中</span>
+                                        {% else %}
+                                             <span class="badge bg-secondary">已下架</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                             {# 管理按钮部分 #}
+                            <div>
+                                <a href="{{ url_for('admin.edit_product', product_id=product.id) }}" class="btn btn-sm btn-outline-secondary" title="编辑商品">
+                                    <i class="bi bi-pencil"></i> 管理
+                                </a>
+                            </div>
+                        </div>
                     {% endfor %}
                 </div>
              {% else %} {# 如果卖家没有商品 #}

@@ -1,46 +1,57 @@
-{% extends "layouts/base.html" %} 
+{# app/templates/seller/add_product.html #}
+{% extends "layouts/base.html" %}
 {% block title %}添加新商品{% endblock %}
 
 {% block content %}
     <div class="row justify-content-center"> {# 使用网格居中 #}
         <div class="col-md-8"> {# 可以稍微宽一点 #}
             <h2 class="mb-4">添加新商品</h2> {# 增加标题下边距 #}
-            <form method="post">
-                
+            {# === vvv MODIFY: Add enctype for file uploads vvv === #}
+            <form method="post" enctype="multipart/form-data">
+            {# === ^^^ MODIFY ^^^ === #}
+
                 {# 商品名称 #}
                 <div class="mb-3">
                     <label for="name" class="form-label">商品名称:</label> {# 添加 form-label #}
-                    <input type="text" id="name" name="name" class="form-control" required> {# 添加 form-control #}
+                    <input type="text" id="name" name="name" class="form-control" required value="{{ request.form.name or '' }}"> {# 添加 form-control, 保留提交失败的值 #}
                 </div>
-                
+
                 {# 商品描述 #}
                 <div class="mb-3">
                     <label for="description" class="form-label">商品描述:</label> {# 添加 form-label #}
-                    <textarea id="description" name="description" class="form-control" rows="4"></textarea> {# 添加 form-control #}
+                    <textarea id="description" name="description" class="form-control" rows="4">{{ request.form.description or '' }}</textarea> {# 添加 form-control, 保留提交失败的值 #}
                 </div>
-                
+
                 {# 价格 #}
                 <div class="mb-3">
                     <label for="price" class="form-label">价格 (元):</label> {# 添加 form-label #}
                     {# 使用 input-group 来添加货币符号 #}
                     <div class="input-group">
                          <span class="input-group-text">￥</span>
-                         <input type="number" step="0.01" id="price" name="price" class="form-control" required placeholder="例如：99.99"> {# 添加 form-control #}
+                         <input type="number" step="0.01" id="price" name="price" class="form-control" required placeholder="例如：99.99" value="{{ request.form.price or '' }}"> {# 添加 form-control, 保留提交失败的值 #}
                     </div>
                 </div>
-                
+
                 {# 库存数量 #}
                 <div class="mb-3">
                     <label for="stock" class="form-label">库存数量:</label> {# 添加 form-label #}
-                     <input type="number" id="stock" name="stock" class="form-control" required placeholder="例如：100"> {# 添加 form-control #}
+                     <input type="number" id="stock" name="stock" class="form-control" required placeholder="例如：100" value="{{ request.form.stock or '' }}"> {# 添加 form-control, 保留提交失败的值 #}
                 </div>
-                
+
+                {# === vvv NEW: Product Image Upload vvv === #}
+                <div class="mb-3">
+                    <label for="product_image" class="form-label">商品图片:</label>
+                    <input class="form-control" type="file" id="product_image" name="product_image" accept="image/png, image/jpeg, image/jpg, image/gif">
+                     <div class="form-text">允许的格式: png, jpg, jpeg, gif</div>
+                </div>
+                {# === ^^^ NEW ^^^ === #}
+
                 {# 提交按钮 #}
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end"> {# 让按钮靠右 #}
                     <a href="{{ url_for('seller.dashboard') }}" class="btn btn-secondary me-md-2">返回仪表盘</a> {# 返回按钮 #}
                     <button type="submit" class="btn btn-success">确认添加</button> {# 添加按钮，使用绿色 success #}
                 </div>
-                
+
             </form>
         </div>
     </div>

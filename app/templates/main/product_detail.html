@@ -1,42 +1,129 @@
+{# app/templates/main/product_detail.html #}
 {% extends "layouts/base.html" %} {# 继承基础模板 #}
 {% block title %}{{ product.name }}{% endblock %} {# 设置页面标题为商品名称 #}
 
 {% block content %} {# 填充主体内容 #}
-    <h2>{{ product.name }}</h2> {# 显示商品名称作为大标题 #}
+    <div class="row">
+        <div class="col-md-6">
+            {# === vvv NEW: Display Image vvv === #}
+            {% if product.image_url %}
+                <img src="{{ url_for('static', filename='uploads/products/' + product.image_url) }}" alt="{{ product.name }}" class="img-fluid rounded shadow-sm mb-3">
+            {% else %}
+                 {# Placeholder if no image #}
+                <div class="rounded bg-light d-flex justify-content-center align-items-center mb-3" style="height: 300px; border: 1px solid #dee2e6;">
+                     <i class="bi bi-image text-muted fs-1"></i>
+                </div>
+            {% endif %}
+            {# === ^^^ NEW ^^^ === #}
+        </div>
+        <div class="col-md-6">
+            <h2>{{ product.name }}</h2> {# 显示商品名称作为大标题 #}
+            {# === 新增代码：添加隐藏字段存储商品 ID === #}
+            <input type="hidden" id="product-id-context" value="{{ product.id }}">
+            {# === 新增代码结束 === #}
 
-    {# === 新增代码：添加隐藏字段存储商品 ID === #}
-    <input type="hidden" id="product-id-context" value="{{ product.id }}">
-    {# === 新增代码结束 === #}
+            <p class="fs-4 text-primary"><strong>价格:</strong> ￥{{ "%.2f"|format(product.price) }}</p> {# 显示格式化后的价格 #}
+            <p><strong>库存:</strong> {{ product.stock }} 件</p> {# 显示库存 #}
+            <p><strong>卖家:</strong> {{ product.seller.username }}</p> {# 显示卖家用户名 #}
+            <hr> {# 分隔线 #}
+            <p><strong>商品描述:</strong></p>
+            {# 使用 nl2br 过滤器将描述文本中的换行符转换为 HTML 的 <br> 标签，保留换行 #}
+            <p>{{ product.description | nl2br }}</p> {# [source: 189] #}
+            <hr> {# 分隔线 #}
+             <p><a href="{{ url_for('main.index') }}" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> 返回商品列表</a></p> {# 返回按钮样式 #}
+        </div>
+    </div>
 
-    <p><strong>价格:</strong> ￥{{ "%.2f"|format(product.price) }}</p> {# 显示格式化后的价格 #}
-    <p><strong>库存:</strong> {{ product.stock }} 件</p> {# 显示库存 #}
-    <p><strong>卖家:</strong> {{ product.seller.username }}</p> {# 显示卖家用户名 #}
-    <hr> {# 分隔线 #}
-    <p><strong>商品描述:</strong></p>
-    {# 使用 nl2br 过滤器将描述文本中的换行符转换为 HTML 的 <br> 标签，保留换行 #}
-    <p>{{ product.description | nl2br }}</p> {# [source: 189] #}
-    <hr> {# 分隔线 #}
 
     {# --- 问答区域 --- #}
     {# 将基础问答框放在这里，并针对当前商品提问 #}
-    <div class="qa-section" style="padding: 20px; border: 1px solid #ccc; margin-top: 20px; background-color: #f8f9fa;">
-        <h3 class="mb-3">关于 “{{ product.name }}” 的问题？问问 AI 助手</h3> {# 添加了 Bootstrap 间距类 mb-3 #}
+    <div class="qa-section mt-4 p-4 border rounded bg-light shadow-sm">
+        <h3 class="mb-3"><i class="bi bi-patch-question"></i> 关于 “{{ product.name }}” 的问题？问问 AI 助手</h3> {# 添加了 Bootstrap 间距类 mb-3 #}
         {# 使用 Bootstrap 的 input-group 让输入框和按钮更好看地组合在一起 #}
         <div class="input-group mb-3"> {# [source: 239] #}
             {# 添加 form-control 类美化输入框 #}
-            <input type="text" id="qa-input" class="form-control" placeholder="输入关于本商品的问题..." aria-label="商品问题输入框"> {# [source: 240] #}
+            <input type="text" id="qa-input-detail" class="form-control" placeholder="输入关于本商品的问题..." aria-label="商品问题输入框"> {# [source: 240] #} {# 注意：修改 ID 避免冲突 #}
             {# 添加 btn 和 btn-primary 类美化按钮 #}
-            <button class="btn btn-primary" type="button" id="qa-button">发送提问</button> {# [source: 240] #}
+            <button class="btn btn-primary" type="button" id="qa-button-detail">发送提问</button> {# [source: 240] #} {# 注意：修改 ID 避免冲突 #}
         </div>
         {# 状态显示区域，添加 text-muted 类使其颜色变淡 #}
-        <div id="qa-status" class="text-muted mb-2" style="min-height: 1.5em;"></div> {# [source: 240] 添加最小高度防止跳动 #}
+        <div id="qa-status-detail" class="text-muted mb-2" style="min-height: 1.5em;"></div> {# [source: 240] 添加最小高度防止跳动 #} {# 注意：修改 ID 避免冲突 #}
         {# 答案显示区域，使用 Bootstrap 的 alert 样式 #}
-        <div id="qa-answer" class="alert alert-light" role="alert" style="min-height: 60px; white-space: pre-wrap; background-color: #ffffff; border: 1px solid #dee2e6;"> {# [source: 240] white-space: pre-wrap 保留 AI 回答的换行 #}
+        <div id="qa-answer-detail" class="alert alert-light border" role="alert" style="min-height: 60px; white-space: pre-wrap; background-color: #ffffff;"> {# [source: 240] white-space: pre-wrap 保留 AI 回答的换行 #} {# 注意：修改 ID 避免冲突 #}
             请在此提问，我会尽力根据商品信息和平台规则回答。
         </div>
     </div>
     {# --- 问答区域结束 --- #}
 
-    <hr class="mt-4"> {# 分隔线，添加上边距 #}
-    <p><a href="{{ url_for('main.index') }}" class="btn btn-secondary">返回商品列表</a></p> {# 返回按钮样式 #}
+    {# --- 处理详情页问答的独立 JS --- #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const qaInput = document.getElementById('qa-input-detail');
+            const qaButton = document.getElementById('qa-button-detail');
+            const qaStatus = document.getElementById('qa-status-detail');
+            const qaAnswerDiv = document.getElementById('qa-answer-detail');
+            const productIdInput = document.getElementById('product-id-context'); // 获取商品ID输入框
+
+            function handleDetailQuestionSubmit() {
+                if (!qaInput || !qaButton || !qaStatus || !qaAnswerDiv || !productIdInput) {
+                    console.error("错误：未能找到所有详情页问答区的 HTML 元素！");
+                    return;
+                }
+                const questionText = qaInput.value.trim();
+                if (!questionText) {
+                    qaStatus.textContent = '请输入关于本商品的问题！';
+                    setTimeout(() => { if(qaStatus.textContent === '请输入关于本商品的问题！') qaStatus.textContent = ''; }, 2000);
+                    return;
+                }
+                qaAnswerDiv.textContent = '';
+                qaStatus.innerHTML = `<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">思考中...</span></div><span class="ms-1 small">正在思考中...</span>`;
+                qaButton.disabled = true;
+                qaInput.disabled = true;
+
+                let requestData = {
+                    question: questionText,
+                    product_id: productIdInput.value // 直接添加商品ID
+                };
+
+                fetch('/qa/ask', { // 发送到同一个QA端点
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                })
+                .then(response => {
+                    if (!response.ok) { throw new Error(`请求失败: ${response.status}`); }
+                    return response.json();
+                 })
+                .then(data => {
+                    qaStatus.innerHTML = '';
+                    qaAnswerDiv.textContent = data.answer || '未能获取回答。';
+                    qaAnswerDiv.scrollTop = 0;
+                })
+                .catch(error => {
+                    console.error('详情页提问出错:', error);
+                    qaStatus.innerHTML = '';
+                    qaAnswerDiv.textContent = `提问失败: ${error.message}。请稍后再试。`;
+                })
+                .finally(() => {
+                    qaButton.disabled = false;
+                    qaInput.disabled = false;
+                    qaInput.focus();
+                });
+            }
+
+            if (qaButton) {
+                qaButton.addEventListener('click', handleDetailQuestionSubmit);
+            }
+            if (qaInput) {
+                qaInput.addEventListener('keypress', function(event) {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        handleDetailQuestionSubmit();
+                    }
+                });
+            }
+        });
+    </script>
+    {# --- JS 结束 --- #}
+
 {% endblock %} {# 结束 content 块 #}

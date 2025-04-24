@@ -1,4 +1,3 @@
-# This file is intentionally left blank.
 # app/models.py
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -12,7 +11,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False) # 用户名，不能重复，不能为空
     email = db.Column(db.String(120), unique=True, nullable=False) # 邮箱，不能重复，不能为空
     password_hash = db.Column(db.String(256)) # 存储加密后的密码，设长一点安全
-    role = db.Column(db.String(10), nullable=False, default='buyer') # 角色 ('buyer' 或 'seller')，默认是买家
+    role = db.Column(db.String(10), nullable=False, default='buyer') # 角色 ('buyer', 'seller', 'admin')，默认是买家
 
     def set_password(self, password):
         """设置密码的方法，会自动加密"""
@@ -20,6 +19,9 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         """检查输入的密码是否和存储的加密密码匹配"""
+        # 添加检查，确保 password_hash 不是 None
+        if self.password_hash is None:
+            return False
         return check_password_hash(self.password_hash, password)
 
     def __repr__(self):
@@ -38,10 +40,15 @@ class Product(db.Model):
     seller_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     # 'user.id' 指向 User 模型的 id 字段
 
-    # --- vvvvvv 这是新添加的行 vvvvvv ---
     status = db.Column(db.String(20), nullable=False, default='active', index=True)
     # status 字段：字符串类型，不能为空，默认为 'active' (上架)，加索引方便查询
-    # --- ^^^^^^ 新添加的行结束 ^^^^^^ ---
+
+    # === vvv NEW vvv ===
+    # 新增字段：存储商品图片的 URL 或相对路径
+    # nullable=True 表示允许商品没有图片
+    image_url = db.Column(db.String(255), nullable=True)
+    # === ^^^ NEW ^^^ ===
+
 
     # 关系: 建立 User 和 Product 之间的联系
     # 这样可以通过 product.seller 找到卖家用户,
@@ -60,8 +67,12 @@ class Product(db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     """根据存储的用户ID加载用户对象，供 Flask-Login 内部使用"""
-    # User.query.get 是 SQLAlchemy 提供的方法，通过主键(id)查找用户
-    return User.query.get(int(user_id))
+    try:
+        user_id_int = int(user_id)
+        return User.query.get(user_id_int)
+    except (ValueError, TypeError):
+        return None
+
 
 # --- 规则/FAQ 模型 ---
 class FaqRule(db.Model): # [source: 137] 这行保持不变

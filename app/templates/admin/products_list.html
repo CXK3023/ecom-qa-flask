@@ -6,56 +6,89 @@
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-box-seam-fill"></i> 商品管理 (所有商品)</h2>
-        {# 这里以后可以加搜索或筛选功能 #}
+        <div>
+             {# === vvv Export Button vvv === #}
+            <a href="{{ url_for('admin.export_products') }}" class="btn btn-sm btn-outline-success me-2">
+                <i class="bi bi-download"></i> 导出商品数据 (CSV)
+            </a>
+            {# === ^^^ Export Button ^^^ === #}
+        </div>
     </div>
 
+    {# === vvv NEW: Import Form vvv === #}
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-upload"></i> 批量导入商品数据 (CSV)
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('admin.import_products') }}" method="post" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="import_file" class="form-label">选择 CSV 文件:</label>
+                    <input class="form-control" type="file" id="import_file" name="import_file" required accept=".csv">
+                    <div class="form-text">
+                        请上传 CSV 文件。要求包含列: 'Name', 'Description', 'Price', 'Stock', 'Status', 'Image Filename', 'Seller Username'。 <br>
+                        **重要:** 'Image Filename' 列应包含图片的文件名 (例如 `image1.jpg`)，并且对应的图片文件**必须已手动上传**到服务器的 `static/uploads/products/` 目录下。导入过程不处理图片上传。 <br>
+                         'Seller Username' 必须是系统中已存在的商家用户名。
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">上传并导入</button>
+            </form>
+        </div>
+    </div>
+    {# === ^^^ NEW: Import Form ^^^ === #}
+
+
+    {# === Product List Table (Remains the same) === #}
     {% if products_with_sellers %}
         <div class="table-responsive">
-            <table class="table table-striped table-hover table-bordered table-sm">
+            <table class="table table-striped table-hover table-bordered table-sm align-middle"> {# Added align-middle #}
                 <thead class="table-dark">
                     <tr>
-                        <th scope="col">ID</th>
-                        <th scope="col">商品名称</th>
-                        <th scope="col">卖家</th>
-                        <th scope="col">价格</th>
-                        <th scope="col">库存</th>
-                        <th scope="col">状态</th> {# 新增状态列 #}
-                        <th scope="col">操作</th>
+                        <th scope="col" style="width: 10%;">图片</th>
+                        <th scope="col" style="width: 5%;">ID</th>
+                        <th scope="col" style="width: 20%;">商品名称</th> {# Adjusted width #}
+                        <th scope="col" style="width: 10%;">卖家</th>
+                        <th scope="col" style="width: 10%;">价格</th>
+                        <th scope="col" style="width: 5%;">库存</th> {# Adjusted width #}
+                        <th scope="col" style="width: 10%;">状态</th> {# Adjusted width #}
+                        <th scope="col" style="width: 30%;">操作</th> {# Adjusted width #}
                     </tr>
                 </thead>
                 <tbody>
-                    {# 循环我们从 Python 传过来的列表 products_with_sellers #}
-                    {# 注意：列表里每一项 item 是一个元组 (Product对象, 卖家用户名) #}
-                    {# 所以要用 item[0] 获取 Product 对象，item[1] 获取卖家用户名 #}
                     {% for product, seller_username in products_with_sellers %}
                         <tr>
+                            <td>
+                                {% if product.image_url %}
+                                    <img src="{{ url_for('static', filename='uploads/products/' + product.image_url) }}" alt="{{ product.name }}" class="rounded" style="width: 50px; height: 50px; object-fit: cover;">
+                                {% else %}
+                                    <div class="rounded bg-light d-flex justify-content-center align-items-center" style="width: 50px; height: 50px; border: 1px solid #dee2e6;">
+                                        <i class="bi bi-image text-muted"></i>
+                                    </div>
+                                {% endif %}
+                            </td>
                             <th scope="row">{{ product.id }}</th>
                             <td>{{ product.name }}</td>
-                            <td>{{ seller_username }}</td> {# 显示卖家用户名 #}
+                            <td>{{ seller_username }}</td>
                             <td>￥{{ "%.2f"|format(product.price) }}</td>
                             <td>{{ product.stock }}</td>
                             <td>
-                                {# 根据商品状态显示不同颜色的小标签 #}
                                 {% if product.status == 'active' %}
                                     <span class="badge bg-success">上架中</span>
                                 {% elif product.status == 'inactive' %}
                                     <span class="badge bg-secondary">已下架</span>
                                 {% else %}
-                                    <span class="badge bg-warning">{{ product.status }}</span> {# 其他未知状态用黄色 #}
+                                    <span class="badge bg-warning">{{ product.status }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                {# 编辑按钮: 指向 *将来* 要做的 /admin/products/edit/商品ID #}
                                 <a href="{{ url_for('admin.edit_product', product_id=product.id) }}" class="btn btn-sm btn-outline-secondary me-1" title="编辑商品">
                                     <i class="bi bi-pencil-square"></i> 编辑
                                 </a>
-
-                                {# 切换状态按钮: 根据当前状态显示不同文字和样式 #}
-                                {# 指向 *将来* 要做的 /admin/products/toggle_status/商品ID (用 POST) #}
                                 <form method="post" action="{{ url_for('admin.toggle_product_status', product_id=product.id) }}" style="display: inline;">
-                                    {% if product.status == 'active' %}
+                                    {# ... toggle status buttons ... #}
+                                     {% if product.status == 'active' %}
                                         <button type="submit" class="btn btn-sm btn-outline-warning me-1" title="将商品下架"
-                                                onclick="return confirm('确定要下架商品 “{{ product.name | escape }}” 吗？下架后用户将无法在前台看到。');">
+                                                onclick="return confirm('确定要下架商品 “{{ product.name | escape }}” 吗？');">
                                             <i class="bi bi-arrow-down-square"></i> 下架
                                         </button>
                                     {% else %}
@@ -65,8 +98,6 @@
                                         </button>
                                     {% endif %}
                                 </form>
-
-                                {# 删除按钮: 指向 *将来* 要做的 /admin/products/delete/商品ID (用 POST) #}
                                 <form method="post" action="{{ url_for('admin.delete_product', product_id=product.id) }}" style="display: inline;">
                                     <button type="submit" class="btn btn-sm btn-outline-danger" title="永久删除商品"
                                             onclick="return confirm('警告：确定要永久删除商品 “{{ product.name | escape }}” (ID: {{ product.id }}) 吗？\n此操作无法撤销！');">

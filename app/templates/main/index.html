@@ -1,3 +1,4 @@
+{# app/templates/main/index.html #}
 {% extends "layouts/base.html" %} {# [source: 40] #}
 {% block title %}首页{% endblock %} {# [source: 40] #}
 
@@ -7,27 +8,34 @@
     {% if not current_user.is_authenticated %} {# [source: 40] #}
     <p>请 <a href="{{ url_for('auth.login') }}">登录</a> 或 <a href="{{ url_for('auth.register') }}">注册</a> 开始。</p> {# [source: 40] #}
     {% endif %} {# [source: 40] #}
-    {# 之后这里可以放商品列表等内容 #}
 
-    {# --- 新增的商品展示部分 --- #}
     <hr> {# 添加一个分隔线 #}
-    <h3>最新商品</h3> {# [source: 36] #}
+    <h3><i class="bi bi-cart3"></i> 最新商品</h3> {# [source: 36] #}
     {% if products %} {# 检查后台是否传递了 products 列表，并且列表不为空 #} {# [source: 36] #}
-        <ul> {# 使用无序列表显示商品 #} {# [source: 36] #}
+        <div class="list-group"> {# 使用 list-group 样式 #}
             {% for product in products %} {# 循环遍历 products 列表中的每一个 product 对象 #} {# [source: 37] #}
-                <li> {# 列表中的一项 #}
-                    {# 让商品名称成为一个链接，指向这个商品的详情页 #}
-                    <a href="{{ url_for('main.product_detail', product_id=product.id) }}"> {# [source: 37] #}
-                        {{ product.name }} {# 显示商品名称 #}
-                    </a>
-                     - ￥{{ "%.2f"|format(product.price) }} {# 显示格式化后的价格 #} {# [source: 38] #}
-                     (由 {{ product.seller.username }} 发布) {# 通过关系显示卖家用户名 #} {# [source: 38] #}
-                </li>
+                {# 让整个列表项成为一个链接，指向这个商品的详情页 #}
+                <a href="{{ url_for('main.product_detail', product_id=product.id) }}" class="list-group-item list-group-item-action d-flex align-items-center"> {# [source: 37] #}
+                    {# === vvv NEW: Display Image vvv === #}
+                    {% if product.image_url %}
+                        <img src="{{ url_for('static', filename='uploads/products/' + product.image_url) }}" alt="{{ product.name }}" class="me-3 rounded" style="width: 60px; height: 60px; object-fit: cover;">
+                    {% else %}
+                        {# Placeholder if no image #}
+                        <div class="me-3 rounded bg-secondary d-flex justify-content-center align-items-center" style="width: 60px; height: 60px;">
+                            <i class="bi bi-image text-light fs-4"></i>
+                        </div>
+                    {% endif %}
+                    {# === ^^^ NEW ^^^ === #}
+                    <div>
+                        <h5 class="mb-1">{{ product.name }}</h5> {# 显示商品名称 #}
+                        <p class="mb-1">￥{{ "%.2f"|format(product.price) }}</p> {# 显示格式化后的价格 #} {# [source: 38] #}
+                        <small class="text-muted">由 {{ product.seller.username }} 发布</small> {# 通过关系显示卖家用户名 #} {# [source: 38] #}
+                    </div>
+                </a>
             {% endfor %} {# 循环结束 #} {# [source: 38] #}
-        </ul>
+        </div>
     {% else %} {# 如果 products 列表为空或不存在 #} {# [source: 38] #}
         <p>目前还没有商品上架。</p> {# 显示提示信息 #} {# [source: 38] #}
     {% endif %} {# 判断结束 #} {# [source: 38] #}
-    {# --- 商品展示部分结束 --- #}
 
 {% endblock %} {# [source: 40] #}

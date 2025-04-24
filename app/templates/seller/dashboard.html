@@ -1,3 +1,4 @@
+{# app/templates/seller/dashboard.html #}
 {% extends "layouts/base.html" %} {# 继承基础模板 #}
 {% block title %}商家中心 - 仪表盘{% endblock %} {# 设置页面标题 #}
 
@@ -15,29 +16,39 @@
     {% if products %} {# 检查是否有商品 #}
         {# 使用 Bootstrap 表格样式，并添加响应式包裹层 #}
         <div class="table-responsive">
-            <table class="table table-striped table-hover table-bordered table-sm"> {# 使用小号表格 table-sm #}
+            <table class="table table-striped table-hover table-bordered table-sm align-middle"> {# 使用小号表格 table-sm, align-middle 垂直居中 #}
                 <thead class="table-light"> {# 表头浅色背景 #}
                     <tr>
+                        {# === vvv NEW: Image Column Header vvv === #}
+                        <th scope="col" style="width: 10%;">图片</th>
+                        {# === ^^^ NEW ^^^ === #}
                         <th scope="col" style="width: 5%;">ID</th>
-                        <th scope="col" style="width: 25%;">名称</th>
+                        <th scope="col" style="width: 20%;">名称</th> {# 调整宽度 #}
                         <th scope="col" style="width: 10%;">价格 (元)</th>
                         <th scope="col" style="width: 10%;">库存</th>
-                        {# --- vvv 1. 新增状态列标题 vvv --- #}
                         <th scope="col" style="width: 15%;">状态</th>
-                        {# --- ^^^ 1. 新增状态列标题 ^^^ --- #}
-                        <th scope="col" style="width: 35%;">操作</th> {# 调整宽度给状态列留空间 #}
+                        <th scope="col" style="width: 30%;">操作</th> {# 调整宽度 #}
                     </tr>
                 </thead>
                 <tbody> {# 表格主体 #}
                     {% for product in products %} {# 循环商品 #}
                         <tr>
+                            {# === vvv NEW: Display Image Cell vvv === #}
+                            <td>
+                                {% if product.image_url %}
+                                    <img src="{{ url_for('static', filename='uploads/products/' + product.image_url) }}" alt="{{ product.name }}" class="rounded" style="width: 50px; height: 50px; object-fit: cover;">
+                                {% else %}
+                                    <div class="rounded bg-light d-flex justify-content-center align-items-center" style="width: 50px; height: 50px; border: 1px solid #dee2e6;">
+                                        <i class="bi bi-image text-muted"></i>
+                                    </div>
+                                {% endif %}
+                            </td>
+                             {# === ^^^ NEW ^^^ === #}
                             <th scope="row">{{ product.id }}</th> {# ID 作为行头 #}
                             <td>{{ product.name }}</td>
                             <td>{{ "%.2f"|format(product.price) }}</td> {# 格式化价格 #}
                             <td>{{ product.stock }}</td>
-                            {# --- vvv 2. 新增状态显示单元格 vvv --- #}
                             <td>
-                                {# 根据商品状态显示不同颜色的小标签 #}
                                 {% if product.status == 'active' %}
                                     <span class="badge bg-success">上架中</span>
                                 {% elif product.status == 'inactive' %}
@@ -46,19 +57,15 @@
                                     <span class="badge bg-warning">{{ product.status }}</span> {# 其他未知状态用黄色 #}
                                 {% endif %}
                             </td>
-                            {# --- ^^^ 2. 新增状态显示单元格 ^^^ --- #}
                             <td> {# 操作列单元格 #}
-                                {# 编辑按钮保持不变 #}
-                                <a href="{{ url_for('seller.edit_product', product_id=product.id) }}" class="btn btn-sm btn-outline-primary me-1">
+                                <a href="{{ url_for('seller.edit_product', product_id=product.id) }}" class="btn btn-sm btn-outline-primary me-1" title="编辑">
                                     <i class="bi bi-pencil-square"></i> 编辑
                                 </a>
-                                {# 删除按钮保持不变 #}
                                 <form method="post" action="{{ url_for('seller.delete_product', product_id=product.id) }}" style="display: inline;">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定要永久删除商品 “{{ product.name | escape }}” 吗？此操作无法撤销！');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="删除" onclick="return confirm('确定要永久删除商品 “{{ product.name | escape }}” 吗？此操作无法撤销！');">
                                        <i class="bi bi-trash3"></i> 删除
                                     </button>
                                 </form>
-                                {# --- 可以在这里添加商家自己控制上下架的按钮 (下一步实现) --- #}
                             </td>
                         </tr>
                     {% endfor %} {# 结束 for 循环 #}

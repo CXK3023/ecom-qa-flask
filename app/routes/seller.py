@@ -1,196 +1,300 @@
 # app/routes/seller.py
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort # [source: 1]
-from flask_login import login_required, current_user # [source: 1]
-from ..models import Product, User # 导入 Product 和 User 模型 # [source: 1]
-from .. import db # [source: 1]
-from functools import wraps # 导入 wraps，用于创建我们自己的装饰器 # [source: 1]
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, current_app # 添加 current_app
+from flask_login import login_required, current_user
+from ..models import Product, User
+from .. import db
+from functools import wraps
+# === vvv NEW IMPORTS vvv ===
+import os
+from werkzeug.utils import secure_filename
+# === ^^^ NEW IMPORTS ^^^ ===
 
-# 创建一个名叫 'seller' 的蓝图
-seller = Blueprint('seller', __name__) # [source: 1]
+
+seller = Blueprint('seller', __name__)
+
+# === vvv NEW HELPER FUNCTION vvv ===
+def allowed_file(filename):
+    """检查文件扩展名是否允许"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
+
+def save_product_image(file, current_image_filename=None):
+    """
+    处理上传的图片文件：验证、保存、删除旧文件（如果需要）。
+    返回保存后的文件名，如果失败或无有效文件则返回 None。
+    如果上传了新文件，会尝试删除 current_image_filename 对应的旧文件。
+    """
+    if not file or file.filename == '':
+        return None # 没有上传文件
+
+    if allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        # 注意：为了防止文件名冲突，实践中通常会重命名文件（例如加时间戳或UUID）
+        # filename = str(uuid.uuid4()) + "_" + filename
+        save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+
+        # --- 删除旧图片 (如果提供了旧文件名且新文件名不同) ---
+        if current_image_filename and current_image_filename != filename:
+            old_image_path = os.path.join(current_app.config['UPLOAD_FOLDER'], current_image_filename)
+            if os.path.exists(old_image_path):
+                try:
+                    os.remove(old_image_path)
+                    print(f"DEBUG: Deleted old image: {old_image_path}")
+                except Exception as e:
+                    print(f"ERROR deleting old image {old_image_path}: {e}")
+                    # 不阻塞主流程，但记录错误
+                    flash(f"删除旧图片 '{current_image_filename}' 失败: {e}", 'warning')
+            else:
+                 print(f"WARN: Old image path not found: {old_image_path}")
+
+
+        # --- 保存新图片 ---
+        try:
+            # 确保上传目录存在
+            os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
+            file.save(save_path)
+            print(f"DEBUG: Image saved to {save_path}")
+            return filename # 返回保存的文件名
+        except Exception as e:
+            flash(f"图片保存失败: {e}", "error")
+            print(f"ERROR saving image to {save_path}: {e}")
+            return None
+    else:
+        # 文件类型不允许
+        allowed_formats = ", ".join(current_app.config['ALLOWED_EXTENSIONS'])
+        flash(f'上传失败：只允许上传 {allowed_formats} 格式的图片。', 'error')
+        return None
+
+def delete_product_image(image_filename):
+    """删除指定的商品图片文件"""
+    if not image_filename:
+        return False
+    image_path = os.path.join(current_app.config['UPLOAD_FOLDER'], image_filename)
+    if os.path.exists(image_path):
+        try:
+            os.remove(image_path)
+            print(f"DEBUG: Deleted image: {image_path}")
+            return True
+        except Exception as e:
+            print(f"ERROR deleting image {image_path}: {e}")
+            flash(f"删除图片 '{image_filename}' 失败: {e}", 'error')
+            return False
+    else:
+        print(f"WARN: Image path not found, cannot delete: {image_path}")
+        return False
+
+# === ^^^ NEW HELPER FUNCTIONS ^^^ ===
+
 
 # --- 自定义装饰器：检查用户是否为商家 ---
-def seller_required(f): # [source: 1]
-    """检查当前用户是否是商家角色"""
-    @wraps(f) # [source: 1]
-    def decorated_function(*args, **kwargs): # [source: 1]
-        if not current_user.is_authenticated or current_user.role != 'seller': # [source: 1]
-            # 如果用户未登录，或者登录了但不是 'seller' 角色
-            flash('您需要以商家身份登录才能访问此页面。', 'error') # [source: 2]
-            abort(403) # 返回 403 Forbidden 错误 # [source: 2]
-            # 或者可以重定向到登录页: return redirect(url_for('auth.login', next=request.url))
-        return f(*args, **kwargs) # [source: 2]
-    return decorated_function # [source: 2]
+def seller_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != 'seller':
+            flash('您需要以商家身份登录才能访问此页面。', 'error')
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
 
 # --- 商家仪表盘路由 ---
-@seller.route('/dashboard') # [source: 2]
-@login_required # 必须先登录 # [source: 2]
-@seller_required # 必须是商家 # [source: 2]
+@seller.route('/dashboard')
+@login_required
+@seller_required
 def dashboard():
-    """显示商家仪表盘，列出自己的商品""" # [source: 2]
-    # 查询当前商家名下的所有商品
-    products = Product.query.filter_by(seller_id=current_user.id).order_by(Product.id.desc()).all() # [source: 3]
-    # 稍后我们会添加查询逻辑，现在先渲染模板
-    return render_template('seller/dashboard.html', products=products) # 把查询结果传递给模板
+    products = Product.query.filter_by(seller_id=current_user.id).order_by(Product.id.desc()).all()
+    return render_template('seller/dashboard.html', products=products)
 
-# --- 后面会在这里添加 添加/编辑/删除 商品的路由 ---
-# app/routes/seller.py (在文件末尾添加)
-@seller.route('/add', methods=['GET', 'POST']) # [source: 7]
-@login_required # [source: 7]
-@seller_required # [source: 7]
+# --- 添加商品路由 (修改版) ---
+@seller.route('/add', methods=['GET', 'POST'])
+@login_required
+@seller_required
 def add_product():
-    """处理添加新商品""" # [source: 7]
-    if request.method == 'POST': # [source: 7]
-        name = request.form.get('name') # [source: 7]
-        description = request.form.get('description') # [source: 7]
-        price_str = request.form.get('price') # [source: 7]
-        stock_str = request.form.get('stock') # [source: 8]
-        error = None # [source: 8]
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        price_str = request.form.get('price')
+        stock_str = request.form.get('stock')
+        error = None
 
-        if not name: # [source: 8]
-            error = '商品名称不能为空。' # [source: 8]
-        if not price_str: # [source: 8]
-            error = '价格不能为空。' # [source: 8]
-        if not stock_str: # [source: 8]
-            error = '库存不能为空。' # [source: 8]
-
-        price = None # [source: 8]
-        stock = None # [source: 8]
-
-        if price_str: # [source: 9]
-            try:
-                price = float(price_str) # 尝试将价格转换为数字(可以有小数) # [source: 9]
-                if price < 0: error = '价格不能为负数。' # [source: 9]
-            except ValueError: # [source: 9]
-                error = '价格必须是有效的数字。' # [source: 9]
-
-        if stock_str: # [source: 10]
-            try:
-                stock = int(stock_str) # 尝试将库存转换为整数 # [source: 10]
-                if stock < 0: error = '库存不能为负数。' # [source: 10]
-            except ValueError: # [source: 10]
-                error = '库存必须是有效的整数。' # [source: 10]
-
-        if error is None: # [source: 11]
-            # 创建新商品对象，关联当前商家
-            new_product = Product(name=name, description=description, price=price, stock=stock, seller_id=current_user.id) # [source: 11]
-            try: # [source: 11]
-                db.session.add(new_product) # [source: 11]
-                db.session.commit() # [source: 11]
-                flash('商品添加成功！', 'success') # [source: 11]
-                return redirect(url_for('seller.dashboard')) # 添加成功后返回仪表盘 # [source: 12]
-            except Exception as e: # [source: 12]
-                db.session.rollback() # [source: 12]
-                flash(f'添加商品时出错: {e}', 'error') # [source: 12]
-        else:
-            flash(error, 'error') # [source: 12]
-
-    # 如果是 GET 请求或 POST 出错，显示添加表单
-    return render_template('seller/add_product.html') # [source: 13]
-
-
-# app/routes/seller.py (在文件末尾添加)
-# from flask import abort # 再次确认这行在文件顶部导入了
-
-@seller.route('/edit/<int:product_id>', methods=['GET', 'POST']) # [source: 22]
-@login_required # [source: 22]
-@seller_required # [source: 22]
-def edit_product(product_id):
-    """处理编辑商品信息""" # [source: 22]
-    # 使用 get_or_404 查询商品，如果找不到对应的商品 ID，会自动返回 404 页面
-    product = Product.query.get_or_404(product_id) # [source: 22]
-
-    # !!! 非常重要的安全检查：确保当前登录的用户就是这个商品的主人 !!!
-    if product.seller_id != current_user.id: # [source: 23]
-        # 如果商品记录的卖家 ID 不等于 当前登录用户的 ID
-        flash('您没有权限编辑这个商品。', 'error') # 准备错误消息 # [source: 23]
-        abort(403) # 立刻停止处理，并向浏览器返回 403 Forbidden (禁止访问) 错误 # [source: 23]
-
-    # 如果是用户提交了编辑表单 (POST 请求)
-    if request.method == 'POST': # [source: 23]
-        # 从提交的表单里获取用户输入的新信息
-        name = request.form.get('name') # [source: 23]
-        description = request.form.get('description') # [source: 23]
-        price_str = request.form.get('price') # [source: 23]
-        stock_str = request.form.get('stock') # [source: 23]
-
-        # --- 数据验证 ---
-        # （这里的验证逻辑和 add_product 函数里的几乎一样，
-        #    检查名称、价格、库存是否为空、是否为有效数字、是否为负数等。
-        #    你可以直接从 add_product 函数复制验证部分的代码过来替换掉下面的注释）
-        error = None # [source: 24]
-        # --- 在这里添加和 add_product 类似的验证代码 ---
-        if not name: error = '商品名称不能为空。' # [source: 24]
+        # --- 基本数据验证 (保持不变) ---
+        if not name: error = '商品名称不能为空。'
         if not price_str: error = '价格不能为空。'
         if not stock_str: error = '库存不能为空。'
-        price = None # [source: 24]
-        stock = None # [source: 24]
-        if price_str: # [source: 24]
-            try: # [source: 24]
-                price = float(price_str) # [source: 25]
-                if price < 0: error = '价格不能为负数。' # [source: 25]
-            except ValueError: error = '价格必须是有效的数字。' # [source: 25]
-        if stock_str: # [source: 25]
-            try: # [source: 25]
-                stock = int(stock_str) # [source: 26]
-                if stock < 0: error = '库存不能为负数。' # [source: 26]
-            except ValueError: error = '库存必须是有效的整数。' # [source: 26]
-        # --- 验证结束 ---
+        price = None
+        stock = None
+        if price_str:
+            try:
+                price = float(price_str)
+                if price < 0: error = '价格不能为负数。'
+            except ValueError: error = '价格必须是有效的数字。'
+        if stock_str:
+            try:
+                stock = int(stock_str)
+                if stock < 0: error = '库存不能为负数。'
+            except ValueError: error = '库存必须是有效的整数。'
+        # --- 基本数据验证结束 ---
 
-        # 如果验证通过，没有错误
-        if error is None: # [source: 26]
-            # !!! 更新商品对象的属性 !!!
-            # 注意：这里不是创建新对象，而是修改我们从数据库读出来的那个 product 对象的属性
-            product.name = name # [source: 26]
-            product.description = description # [source: 27]
-            product.price = price # [source: 27]
-            product.stock = stock # [source: 27]
-            try: # 尝试保存更改 # [source: 27]
-                # 因为 product 是从数据库会话中读出来的，我们修改了它之后，
-                # 直接调用 commit() 就可以把更改保存回数据库了。
-                db.session.commit() # [source: 27]
-                flash('商品信息更新成功！', 'success') # [source: 27]
-                return redirect(url_for('seller.dashboard')) # 跳转回仪表盘 # [source: 28]
-            except Exception as e: # [source: 28]
-                db.session.rollback() # 保存出错，撤销更改 # [source: 28]
-                flash(f'更新商品时出错: {e}', 'error') # [source: 28]
-        else:
-            # 如果验证有错，准备错误消息
-            flash(error, 'error') # [source: 28]
-        # 注意：即时 POST 请求处理中有错误 (比如验证失败)，我们也不能直接返回模板。
-        # 因为如果验证失败，我们需要让用户留在编辑页面看到错误提示，
-        # 并且页面需要能访问到 product 对象来重新填充表单 (虽然这次填充的是用户提交的错误数据)。
-        # 所以，处理 POST 请求的末尾，如果验证失败，不能直接 return，而是让代码继续往下走。
-
-    # 如果是用户第一次访问编辑页面 (GET 请求)，或者 POST 请求处理中有错误
-    # 就显示编辑商品的网页表单 (我们下一步创建它)
-    # **非常重要**：我们需要把从数据库查到的 product 对象传递给模板，
-    # 这样模板才能把商品原来的信息预先填入表单。
-    return render_template('seller/edit_product.html', product=product) # [source: 29]
+        # === vvv 图片处理 vvv ===
+        image_file = request.files.get('product_image')
+        saved_image_filename = None
+        if error is None: # 只有在基本数据验证通过后才尝试处理图片
+            saved_image_filename = save_product_image(image_file)
+            # 如果保存图片失败 (例如格式不对)，save_product_image 会 flash 错误，这里不需要额外处理 error
+        # === ^^^ 图片处理 ^^^ ===
 
 
+        if error is None:
+            # 创建新商品对象，关联当前商家
+            new_product = Product(
+                name=name,
+                description=description,
+                price=price,
+                stock=stock,
+                seller_id=current_user.id,
+                # === vvv 添加 image_url vvv ===
+                image_url=saved_image_filename # 使用保存后的文件名，可能为 None
+                # === ^^^ 添加 image_url ^^^ ===
+            )
+            try:
+                db.session.add(new_product)
+                db.session.commit()
+                flash('商品添加成功！', 'success')
+                return redirect(url_for('seller.dashboard'))
+            except Exception as e:
+                db.session.rollback()
+                flash(f'添加商品时出错: {e}', 'error')
+                # 如果保存数据库失败，但图片已经保存，需要考虑是否删除已保存的图片
+                if saved_image_filename:
+                    delete_product_image(saved_image_filename)
+        # 注意：如果验证失败 (error is not None)，或者图片处理失败 (flash 消息已发出)，流程会自然走到下面的 return render_template
 
-# app/routes/seller.py (在文件末尾添加)
-@seller.route('/delete/<int:product_id>', methods=['POST']) # 只允许 POST 请求来触发删除 # [source: 32]
-@login_required # [source: 32]
-@seller_required # [source: 32]
+    # 如果是 GET 请求或 POST 出错，显示添加表单
+    # request.form 会自动传递到模板，用于保留用户输入
+    return render_template('seller/add_product.html')
+
+
+# --- 编辑商品路由 (修改版) ---
+@seller.route('/edit/<int:product_id>', methods=['GET', 'POST'])
+@login_required
+@seller_required
+def edit_product(product_id):
+    product = Product.query.get_or_404(product_id)
+    if product.seller_id != current_user.id:
+        flash('您没有权限编辑这个商品。', 'error')
+        abort(403)
+
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        price_str = request.form.get('price')
+        stock_str = request.form.get('stock')
+        remove_image = request.form.get('remove_image') # 获取 "删除图片" 复选框的值
+        error = None
+
+        # --- 基本数据验证 (同添加) ---
+        if not name: error = '商品名称不能为空。'
+        if not price_str: error = '价格不能为空。'
+        if not stock_str: error = '库存不能为空。'
+        price = None
+        stock = None
+        if price_str:
+            try:
+                price = float(price_str)
+                if price < 0: error = '价格不能为负数。'
+            except ValueError: error = '价格必须是有效的数字。'
+        if stock_str:
+            try:
+                stock = int(stock_str)
+                if stock < 0: error = '库存不能为负数。'
+            except ValueError: error = '库存必须是有效的整数。'
+        # --- 基本数据验证结束 ---
+
+        # --- 图片处理逻辑 ---
+        new_image_filename = None
+        delete_current_image = False
+
+        if error is None: # 只有在基本数据验证通过后才处理图片相关操作
+            image_file = request.files.get('product_image')
+
+            if remove_image: # 用户勾选了删除当前图片
+                delete_current_image = True
+                # 如果勾选了删除，即使上传了新文件，我们也优先执行删除
+                if image_file and image_file.filename != '':
+                    flash('您已选择删除当前图片，新上传的图片将被忽略。', 'warning')
+            elif image_file and image_file.filename != '': # 用户没有勾选删除，并且上传了新文件
+                # 尝试保存新图片，同时传入当前图片的文件名以便删除旧图
+                new_image_filename = save_product_image(image_file, product.image_url)
+                # 如果 new_image_filename 为 None，表示保存失败，错误信息已 flash
+            # else: 用户没勾选删除，也没上传新文件 -> 保持当前图片不变
+        # --- 图片处理逻辑结束 ---
+
+        if error is None:
+            # 更新商品对象的属性
+            product.name = name
+            product.description = description
+            product.price = price
+            product.stock = stock
+
+            original_image_url = product.image_url # 记录原始 URL，用于错误回滚
+
+            # 更新图片 URL
+            if delete_current_image:
+                if product.image_url: # 只有当前确实有图片才执行删除
+                    if delete_product_image(product.image_url):
+                         product.image_url = None # 文件删除成功后，清空数据库记录
+                    else:
+                        # 文件删除失败，保持数据库记录不变，错误已 flash
+                        pass
+                else:
+                    # 本来就没有图片，无需操作
+                    pass
+            elif new_image_filename:
+                 # 新图片保存成功 (旧图片已在 save_product_image 中尝试删除)
+                 product.image_url = new_image_filename # 更新数据库记录为新文件名
+            # else: # 保持不变的情况
+            #    pass
+
+            try:
+                db.session.commit() # 保存所有更改 (包括 image_url)
+                flash('商品信息更新成功！', 'success')
+                return redirect(url_for('seller.dashboard'))
+            except Exception as e:
+                db.session.rollback() # 回滚数据库更改
+                flash(f'更新商品时发生数据库错误: {e}', 'error')
+                # 数据库回滚后，product.image_url 会回到原始值
+                # 但如果新图片已保存，旧图片已删除，文件系统状态可能与数据库不一致
+                # 理想情况下需要更复杂的事务管理或补偿逻辑，这里简化处理
+                if new_image_filename and not delete_current_image:
+                    # 尝试删除刚刚保存的新图片，因为它没有被数据库记录
+                    delete_product_image(new_image_filename)
+        # 注意：如果验证失败 (error is not None)，或者图片处理失败，流程会自然走到下面的 return render_template
+
+    # GET 请求或 POST 请求出错时，显示编辑表单
+    # 传递 product 对象用于预填充
+    return render_template('seller/edit_product.html', product=product)
+
+# --- 删除商品路由 (修改版) ---
+@seller.route('/delete/<int:product_id>', methods=['POST'])
+@login_required
+@seller_required
 def delete_product(product_id):
-    """处理删除商品""" # [source: 32]
-    # 还是先尝试获取商品，找不到就 404
-    product = Product.query.get_or_404(product_id) # [source: 33]
+    product = Product.query.get_or_404(product_id)
+    if product.seller_id != current_user.id:
+        flash('您没有权限删除这个商品。', 'error')
+        abort(403)
 
-    # !!! 再次进行所有权安全检查 !!! (和编辑时一样重要)
-    if product.seller_id != current_user.id: # [source: 34]
-        flash('您没有权限删除这个商品。', 'error') # [source: 34]
-        abort(403) # [source: 34]
+    image_filename_to_delete = product.image_url # 记录图片文件名
+    product_name = product.name # 记录商品名
 
-    # 如果权限检查通过，尝试删除
-    try: # [source: 34]
-        db.session.delete(product) # 告诉数据库会话：准备删除这个 product 对象 # [source: 34]
-        db.session.commit() # 确认执行删除操作 # [source: 34]
-        flash('商品删除成功！', 'success') # [source: 34]
-    except Exception as e: # [source: 34]
-        db.session.rollback() # 如果删除过程中出错，撤销操作 # [source: 34]
-        flash(f'删除商品时出错: {e}', 'error') # [source: 34]
+    try:
+        db.session.delete(product) # 先从数据库删除记录
+        db.session.commit()
+        flash(f'商品 "{product_name}" 删除成功！', 'success')
+        # 数据库删除成功后，再尝试删除对应的图片文件
+        if image_filename_to_delete:
+             delete_product_image(image_filename_to_delete) # 调用删除图片的函数
+    except Exception as e:
+        db.session.rollback()
+        flash(f'删除商品时发生数据库错误: {e}', 'error')
 
-    # 无论成功还是失败，都跳转回商家的仪表盘页面
-    return redirect(url_for('seller.dashboard')) # [source: 34]
+    return redirect(url_for('seller.dashboard'))
