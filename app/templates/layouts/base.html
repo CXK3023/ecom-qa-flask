@@ -52,22 +52,27 @@
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownUserLink">
                       <li><a class="dropdown-item {% if request.endpoint == 'main.profile' %}active{% endif %}" href="{{ url_for('main.profile') }}"><i class="bi bi-person-lines-fill"></i> 个人资料</a></li>
+                      <li><a class="dropdown-item {% if request.endpoint == 'main.change_username' %}active{% endif %}" href="{{ url_for('main.change_username') }}"><i class="bi bi-person-check"></i> 修改用户名</a></li>
+                      <li><a class="dropdown-item {% if request.endpoint == 'main.change_email' %}active{% endif %}" href="{{ url_for('main.change_email') }}"><i class="bi bi-envelope-at"></i> 修改邮箱</a></li>
 
-                      {# === 管理员专属菜单项 === #}
-                      {% if current_user.role == 'admin' %}
+                      {# === 管理员专属菜单项 - 条件修改 === #}
+                      {# === vvv MODIFY START vvv === #}
+                      {% if current_user.role == 'admin' or current_user.id == 1 %}
+                      {# === ^^^ MODIFY END ^^^ === #}
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item {% if request.endpoint == 'admin.list_rules' %}active{% endif %}" href="{{ url_for('admin.list_rules') }}"><i class="bi bi-gear-fill"></i> 规则管理</a></li>
                         <li><a class="dropdown-item {% if request.endpoint == 'admin.list_users' %}active{% endif %}" href="{{ url_for('admin.list_users') }}"><i class="bi bi-people"></i> 用户管理</a></li>
-                        {# --- vvvvvv 这是新添加的商品管理链接 vvvvvv --- #}
                         <li><a class="dropdown-item {% if request.endpoint == 'admin.list_all_products' %}active{% endif %}" href="{{ url_for('admin.list_all_products') }}"><i class="bi bi-box-seam"></i> 商品管理</a></li>
-                        {# --- ^^^^^^ 新添加的行结束 ^^^^^^ --- #}
                       {% endif %}
                       {# === 管理员菜单项结束 === #}
 
+                      {# --- 商家中心链接 --- #}
+                      {# 仅当用户角色是'seller'时显示，不受 admin 或 id=1 影响 #}
                       {% if current_user.role == 'seller' %}
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item {% if request.blueprint == 'seller' %}active{% endif %}" href="{{ url_for('seller.dashboard') }}"><i class="bi bi-shop"></i> 商家中心</a></li>
                       {% endif %}
+                      {# --- 商家中心链接结束 --- #}
 
                       <li><hr class="dropdown-divider"></li>
                       <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> 退出登录</a></li>
@@ -92,7 +97,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    {% set alert_type = 'success' if category == 'success' else 'danger' if category == 'error' else 'info' %}
+                    {% set alert_type = 'success' if category == 'success' else 'danger' if category == 'error' else 'warning' if category == 'warning' else 'info' %} {# Added warning type #}
                     <div class="alert alert-{{ alert_type }} alert-dismissible fade show mt-3" role="alert">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -255,6 +260,40 @@
             // --- (新增) 处理特定页面的 JavaScript (例如商家后台) ---
             // 我们将特定页面的 JS 移到各自的模板中，以避免冲突
             // 这里只保留通用的 base.html 的问答逻辑
+
+             // --- 处理商家问答区的 JavaScript (从 seller/dashboard 移到这里可能更好管理，但暂时按原样) ---
+             // (如果需要全局处理，则取消注释并适应下面代码)
+             /*
+             const sellerQaInput = document.getElementById('seller-qa-input');
+             const sellerQaButton = document.getElementById('seller-qa-button');
+             const sellerQaStatus = document.getElementById('seller-qa-status');
+             const sellerQaAnswerDiv = document.getElementById('seller-qa-answer');
+             const contextTypeInput = document.getElementById('context-type'); // Assume only one context type input for simplicity here
+
+             function handleSellerQuestionSubmit() {
+                 // ... (Logic similar to handleQuestionSubmit, but using seller-* IDs and sending context_type)
+                 console.log("商家提问按钮点击！");
+                 if (!sellerQaInput || !sellerQaButton || !sellerQaStatus || !sellerQaAnswerDiv || !contextTypeInput) {
+                     console.error("错误：未能找到所有商家问答区的 HTML 元素！");
+                     return;
+                 }
+                 // ... rest of the logic ...
+             }
+
+             if (sellerQaButton) {
+                 sellerQaButton.addEventListener('click', handleSellerQuestionSubmit);
+                 console.log("已为 sellerQaButton 添加点击事件监听器。");
+             }
+             if (sellerQaInput) {
+                 sellerQaInput.addEventListener('keypress', function(event) {
+                     if (event.key === 'Enter' && !event.shiftKey) {
+                         event.preventDefault();
+                         handleSellerQuestionSubmit();
+                     }
+                 });
+                 console.log("已为 sellerQaInput 添加回车键监听器。");
+             }
+            */
 
         }); // --- DOMContentLoaded 事件监听结束 ---
     </script>

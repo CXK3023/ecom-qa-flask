@@ -1,0 +1,35 @@
+{# app/templates/main/change_username.html #}
+{% extends "layouts/base.html" %}
+{% block title %}修改用户名{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h2><i class="bi bi-person-check-fill"></i> 修改用户名</h2>
+            <p>当前用户名: {{ current_user.username }}</p>
+            <hr>
+            <form method="post" action="{{ url_for('main.change_username') }}">
+                {# CSRF token if using Flask-WTF #}
+                {# {{ form.csrf_token }} #}
+
+                <div class="mb-3">
+                    <label for="new_username" class="form-label">新用户名:</label>
+                    <input type="text" id="new_username" name="new_username" class="form-control" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="current_password" class="form-label">当前密码 (用于验证):</label>
+                    <input type="password" id="current_password" name="current_password" class="form-control" required>
+                    <div id="passwordHelpBlock" class="form-text">
+                        请输入您的当前登录密码以确认更改。
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <a href="{{ url_for('main.profile') }}" class="btn btn-secondary me-md-2">取消</a>
+                    <button type="submit" class="btn btn-warning">确认修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

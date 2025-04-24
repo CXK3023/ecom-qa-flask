@@ -1,9 +1,38 @@
-{% extends "layouts/base.html" %} {# [source: 40] #}
-{% block title %}个人资料{% endblock %} {# [source: 40] #}
+{# app/templates/main/profile.html #}
+{% extends "layouts/base.html" %}
+{% block title %}个人资料{% endblock %}
 
-{% block content %} {# [source: 40] #}
-    <h2>{{ user.username }} 的个人资料</h2> {# [source: 41] #}
-    <p>邮箱: {{ user.email }}</p> {# [source: 41] #}
-    <p>角色: {{ user.role }}</p> {# [source: 41] #}
-    {# 可以添加更多信息或修改资料的链接 #}
-{% endblock %} {# [source: 41] #}
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-person-badge"></i> {{ user.username }} 的个人资料</h2>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><strong>用户ID:</strong> {{ user.id }}</li>
+                    <li class="list-group-item"><strong>用户名:</strong> {{ user.username }}</li>
+                    <li class="list-group-item"><strong>邮箱:</strong> {{ user.email }}</li>
+                    <li class="list-group-item"><strong>角色:</strong>
+                        <span class="badge bg-{% if user.role == 'admin' %}danger{% elif user.role == 'seller' %}warning{% else %}secondary{% endif %}">
+                            {{ user.role }}
+                        </span>
+                    </li>
+                </ul>
+                <div class="card-footer text-end">
+                    {# === vvv MODIFY START vvv === #}
+                    {# Link to the future change username page #}
+                    <a href="{{ url_for('main.change_username') }}" class="btn btn-outline-secondary btn-sm me-1">
+                        <i class="bi bi-person-check"></i> 修改用户名
+                    </a>
+                    {# Link to the change email page #}
+                    <a href="{{ url_for('main.change_email') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-envelope-at"></i> 修改邮箱地址
+                    </a>
+                     {# === ^^^ MODIFY END ^^^ === #}
+                     {# Add other profile actions here if needed, e.g., change password #}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
