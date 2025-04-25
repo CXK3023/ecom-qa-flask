@@ -1,0 +1,77 @@
+{# ecom-qa-flask/app/templates/admin/add_edit_embedding_model.html #}
+{% extends "layouts/base.html" %}
+
+{# 根据 action 动态设置标题 #}
+{% block title %}{% if action == 'add' %}添加新向量模型{% else %}编辑向量模型 ID: {{ form_data.id }}{% endif %}{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            {# 根据 action 动态设置 H2 标题 #}
+            <h2 class="mb-4">
+                {% if action == 'add' %}
+                    <i class="bi bi-plus-circle-dotted"></i> 添加新向量模型
+                {% else %}
+                    <i class="bi bi-pencil-square"></i> 编辑向量模型 (ID: {{ form_data.id }})
+                {% endif %}
+            </h2>
+
+            {# 表单提交到对应的 embedding model 路由 #}
+            <form method="post"> {# Action 会自动根据当前 URL 决定 #}
+                {# CSRF Token (if using Flask-WTF) #}
+                {# {{ form.csrf_token }} #}
+
+                {# 模型名称 (API/Local Name) - 必填 #}
+                <div class="mb-3">
+                    <label for="model_name" class="form-label">模型名称 (API/Local Name) <span class="text-danger">*</span></label>
+                    <input type="text" id="model_name" name="model_name" class="form-control"
+                           value="{{ form_data.get('model_name', '') }}"
+                           required placeholder="例如：doubao-embedding-large-text, paraphrase-multilingual-MiniLM-L12-v2">
+                    <div class="form-text">
+                        用于远程 API 调用的标识符或本地 SentenceTransformer 加载的名称。
+                    </div>
+                </div>
+
+                {# 显示名称 - 可选 #}
+                <div class="mb-3">
+                    <label for="display_name" class="form-label">显示名称 (可选)</label>
+                    <input type="text" id="display_name" name="display_name" class="form-control"
+                           value="{{ form_data.get('display_name', '') }}"
+                           placeholder="例如：豆包通用向量模型, 通用多语言向量模型">
+                     <div class="form-text">在管理界面显示的友好名称，方便识别。</div>
+                </div>
+
+                {# 调用方式选择 - 必选 #}
+                <div class="mb-3">
+                    <label for="invocation_method" class="form-label">调用方式 <span class="text-danger">*</span></label>
+                    <select class="form-select" id="invocation_method" name="invocation_method" required>
+                        <option value="local" {% if form_data.get('invocation_method') == 'local' %}selected{% endif %}>
+                            本地运行 (Local SentenceTransformer)
+                        </option>
+                        <option value="remote_api" {% if form_data.get('invocation_method') == 'remote_api' %}selected{% endif %}>
+                            远程 API 调用 (Remote API - e.g., OpenAI/Doubao Embedding API)
+                        </option>
+                    </select>
+                    <div class="form-text">
+                        选择如何生成向量。'本地运行' 使用服务器上的 SentenceTransformer 库；'远程 API 调用' 通过配置的 API Base 和 Key 调用外部 Embedding 服务。
+                    </div>
+                </div>
+
+                {# 描述 - 可选 #}
+                <div class="mb-3">
+                    <label for="description" class="form-label">描述 (可选)</label>
+                    <textarea id="description" name="description" class="form-control" rows="3"
+                              placeholder="简单描述模型的特点或用途...">{{ form_data.get('description', '') }}</textarea>
+                </div>
+
+                {# 提交按钮和取消链接，指向 embedding model 列表 #}
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <a href="{{ url_for('admin.list_embedding_models') }}" class="btn btn-secondary me-md-2">取消</a>
+                    <button type="submit" class="btn btn-{% if action == 'add' %}success{% else %}warning{% endif %}">
+                        {% if action == 'add' %}确认添加{% else %}保存更改{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

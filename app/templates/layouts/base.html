@@ -9,10 +9,39 @@
     {# (可选) 引入 Bootstrap Icons CSS #}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
-        body { padding-bottom: 100px; }
-        .qa-fixed-bottom { max-height: 200px; overflow-y: hidden; transition: max-height 0.3s ease-in-out; }
-        .qa-fixed-bottom:hover { max-height: 400px; overflow-y: auto; }
-        main.container { margin-bottom: 100px; }
+        body { padding-bottom: 100px; /* 增加底部内边距，防止内容被问答框遮挡 */ }
+        .qa-fixed-bottom {
+            max-height: 200px; /* 初始高度 */
+            overflow-y: hidden; /* 隐藏滚动条 */
+            transition: max-height 0.3s ease-in-out; /* 平滑过渡效果 */
+            background-color: #f8f9fa; /* 浅灰色背景 */
+            padding-top: 1rem;
+            padding-bottom: 0.5rem; /* 减少底部内边距 */
+            box-shadow: 0 -0.125rem 0.25rem rgba(0, 0, 0, 0.075); /* 添加顶部阴影 */
+        }
+        /* 鼠标悬停时展开 */
+        .qa-fixed-bottom:hover {
+            max-height: 400px; /* 展开后的最大高度 */
+            overflow-y: auto; /* 显示滚动条 */
+        }
+        main.container {
+            margin-bottom: 220px; /* 增加主内容区域的下边距，比问答框初始高度稍大 */
+        }
+        /* 确保问答框在最前面 */
+        .fixed-bottom {
+            z-index: 1030; /* Bootstrap .fixed-top/.fixed-bottom 的 z-index */
+        }
+        /* 答案区域样式 */
+        #qa-answer {
+            min-height: 40px;
+            max-height: 150px; /* 限制答案区最大高度 */
+            overflow-y: auto;
+            white-space: pre-wrap; /* 保留换行和空格 */
+            margin-bottom: 10px; /* 底部留白 */
+            background-color: #ffffff; /* 白色背景，与容器区分 */
+            border: 1px solid #dee2e6; /* 添加边框 */
+            font-size: 0.875rem; /* 稍小字体 */
+        }
     </style>
 </head>
 <body>
@@ -44,13 +73,15 @@
                       {# === 管理员专属菜单项 === #}
                       {% if current_user.role == 'admin' or current_user.id == 1 %}
                         <li><hr class="dropdown-divider"></li>
-                        {# --- 修改：调整了 active 类判断逻辑，更精确 --- #}
-                        <li><a class="dropdown-item {% if request.endpoint == 'admin.list_rules' or request.endpoint == 'admin.add_rule' or request.endpoint == 'admin.edit_rule' %}active{% endif %}" href="{{ url_for('admin.list_rules') }}"><i class="bi bi-gear-fill"></i> 规则管理</a></li>
-                        <li><a class="dropdown-item {% if request.endpoint == 'admin.list_users' or request.endpoint == 'admin.view_user' or request.endpoint == 'admin.edit_user' %}active{% endif %}" href="{{ url_for('admin.list_users') }}"><i class="bi bi-people"></i> 用户管理</a></li>
-                        <li><a class="dropdown-item {% if request.endpoint == 'admin.list_all_products' or request.endpoint == 'admin.edit_product' or request.endpoint == 'admin.import_products' or request.endpoint == 'admin.export_products' %}active{% endif %}" href="{{ url_for('admin.list_all_products') }}"><i class="bi bi-box-seam"></i> 商品管理</a></li>
-                        {# === vvv 这是本次添加的链接 vvv === #}
-                        <li><a class="dropdown-item {% if request.endpoint == 'admin.list_models' or request.endpoint == 'admin.add_model' or request.endpoint == 'admin.edit_model' %}active{% endif %}" href="{{ url_for('admin.list_models') }}"><i class="bi bi-cpu"></i> AI 模型管理</a></li>
-                        {# === ^^^ 这是本次添加的链接 ^^^ === #}
+                        <li class="dropdown-header small text-muted">管理后台</li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('admin.') and 'rule' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.list_rules') }}"><i class="bi bi-list-check"></i> 规则管理</a></li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('admin.') and 'user' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.list_users') }}"><i class="bi bi-people"></i> 用户管理</a></li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('admin.') and 'product' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.list_all_products') }}"><i class="bi bi-box-seam"></i> 商品管理</a></li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('admin.') and ('chat_model' in request.endpoint or request.endpoint == 'admin.list_chat_models') %}active{% endif %}" href="{{ url_for('admin.list_chat_models') }}"><i class="bi bi-chat-dots"></i> 对话模型管理</a></li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('admin.') and ('embedding_model' in request.endpoint or request.endpoint == 'admin.list_embedding_models') %}active{% endif %}" href="{{ url_for('admin.list_embedding_models') }}"><i class="bi bi-cpu-fill"></i> 向量模型管理</a></li>
+                        {# === vvv 重新添加：系统设置链接 vvv === #}
+                        <li><a class="dropdown-item {% if request.endpoint == 'admin.manage_settings' %}active{% endif %}" href="{{ url_for('admin.manage_settings') }}"><i class="bi bi-sliders"></i> 系统设置</a></li>
+                        {# === ^^^ 重新添加 ^^^ === #}
                       {% endif %}
                       {# === 管理员菜单项结束 === #}
 
@@ -100,14 +131,14 @@
     </main>
 
     {# === 智能问答助手区域 (固定在底部) === #}
-    <div class="container fixed-bottom bg-body-tertiary border-top pt-3 qa-fixed-bottom shadow-lg">
-         <h5><i class="bi bi-robot"></i> 智能问答助手</h5>
+    <div class="container fixed-bottom qa-fixed-bottom"> {# 应用自定义样式 #}
+         <h5 class="mb-2"><i class="bi bi-robot"></i> 智能问答助手</h5> {# 调整标题边距 #}
          <div class="input-group mb-2">
              <input type="text" id="qa-input" class="form-control form-control-sm" placeholder="有问题问 AI..." aria-label="问答输入框">
              <button class="btn btn-sm btn-primary" type="button" id="qa-button"><i class="bi bi-send"></i> 发送</button>
          </div>
          <div id="qa-status" class="text-muted small mb-1" style="min-height: 1.2em;"></div>
-         <div id="qa-answer" class="alert alert-light alert-sm small p-2 border" role="alert" style="min-height: 40px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; margin-bottom: 10px; background-color: #f8f9fa;">
+         <div id="qa-answer" class="alert alert-light alert-sm p-2" role="alert"> {# 应用答案区样式 #}
              你好！有什么可以帮你的吗？
          </div>
      </div>
@@ -120,51 +151,123 @@
     {# === 引入 Bootstrap JS === #}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
-    {# === 处理问答交互的 JavaScript (多轮对话版) === #}
+    {# === 处理问答交互的 JavaScript (整合版 - 保持不变) === #}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // ... (多轮对话的 JS 代码保持不变) ...
-            console.log("页面脚本开始加载 (多轮对话版)...");
+            console.log("页面脚本开始加载 (多轮对话版 - 整合)...");
+            // --- 通用问答框 ---
             const qaInput = document.getElementById('qa-input');
             const qaButton = document.getElementById('qa-button');
             const qaStatus = document.getElementById('qa-status');
             const qaAnswerDiv = document.getElementById('qa-answer');
-            let conversationHistory = [];
+            let conversationHistory = []; // 通用问答历史
+
             function handleQuestionSubmit() {
-                console.log("提问按钮被点击！handleQuestionSubmit 函数开始执行...");
-                if (!qaInput || !qaButton || !qaStatus || !qaAnswerDiv) { console.error("错误：未能找到所有通用问答区的 HTML 元素！"); return; }
+                console.log("通用提问按钮点击！");
+                if (!qaInput || !qaButton || !qaStatus || !qaAnswerDiv) { return; }
                 const questionText = qaInput.value.trim();
                 if (!questionText) { qaStatus.textContent = '请输入你的问题！'; qaInput.focus(); setTimeout(() => { if(qaStatus.textContent === '请输入你的问题！') qaStatus.textContent = ''; }, 2000); return; }
                 qaStatus.innerHTML = `<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">思考中...</span></div><span class="ms-1 small">正在思考中...</span>`;
                 qaButton.disabled = true; qaInput.disabled = true; qaInput.value = '';
                 let requestData = { question: questionText, history: conversationHistory };
-                const productIdInput = document.getElementById('product-id-context');
-                if (productIdInput && productIdInput.value) { requestData.product_id = productIdInput.value; console.log("提问上下文中包含商品ID:", requestData.product_id); }
-                const contextTypeInput = document.getElementById('context-type');
-                if (contextTypeInput && contextTypeInput.value) { requestData.context_type = contextTypeInput.value; console.log("提问上下文中包含 context_type:", requestData.context_type); }
-                console.log("发送给后端的数据:", JSON.stringify(requestData));
+                console.log("发送通用提问数据:", JSON.stringify(requestData));
                 fetch('/qa/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestData) })
                 .then(response => {
-                    if (!response.ok) { return response.json().then(errData => { throw new Error(errData.error || `请求失败，状态码: ${response.status}`); }).catch(() => { throw new Error(`请求失败，状态码: ${response.status}`); }); }
+                    if (!response.ok) { return response.json().then(errData => { throw new Error(errData.error || `请求失败: ${response.status}`); }).catch(() => { throw new Error(`请求失败: ${response.status}`); }); }
                     return response.json();
                 })
                 .then(data => {
-                    console.log("收到后端数据:", data);
+                    console.log("收到通用回答数据:", data);
                     qaStatus.innerHTML = '';
                     if (data && data.answer) {
                         qaAnswerDiv.textContent = data.answer;
                         conversationHistory = data.history || [];
-                        console.log("本地对话历史已更新，包含", conversationHistory.length, "条消息");
+                        console.log("通用对话历史已更新", conversationHistory.length, "条");
                     } else { qaAnswerDiv.textContent = '抱歉，未能获取到有效的回答。'; }
                     qaAnswerDiv.scrollTop = qaAnswerDiv.scrollHeight;
                 })
-                .catch(error => { console.error('请求 AI 回答时出错:', error); qaStatus.innerHTML = ''; qaAnswerDiv.textContent = `获取回答失败: ${error.message}. 请检查网络或联系管理员。`; })
-                .finally(() => { console.log("请求处理完成。"); qaButton.disabled = false; qaInput.disabled = false; qaInput.focus(); });
+                .catch(error => { console.error('通用提问出错:', error); qaStatus.innerHTML = ''; qaAnswerDiv.textContent = `获取回答失败: ${error.message}.`; })
+                .finally(() => { qaButton.disabled = false; qaInput.disabled = false; qaInput.focus(); });
             }
-            if (qaButton) { qaButton.addEventListener('click', handleQuestionSubmit); console.log("已为 qaButton 添加点击事件监听器。"); }
-            else { console.error("错误：找不到 qa-button 元素！"); }
-            if (qaInput) { qaInput.addEventListener('keypress', function(event) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleQuestionSubmit(); } }); console.log("已为 qaInput 添加回车键监听器。"); }
-            else { console.error("错误：找不到 qa-input 元素！"); }
+            if (qaButton) { qaButton.addEventListener('click', handleQuestionSubmit); }
+            if (qaInput) { qaInput.addEventListener('keypress', function(event) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleQuestionSubmit(); } }); }
+
+            // --- 商家后台专属问答 ---
+            const sellerQaInput = document.getElementById('seller-qa-input');
+            const sellerQaButton = document.getElementById('seller-qa-button');
+            const sellerQaStatus = document.getElementById('seller-qa-status');
+            const sellerQaAnswerDiv = document.getElementById('seller-qa-answer');
+            const contextTypeInput = document.getElementById('context-type');
+            let sellerConversationHistory = [];
+
+            function handleSellerQuestionSubmit() {
+                console.log("商家提问按钮点击！");
+                 if (!sellerQaInput || !sellerQaButton || !sellerQaStatus || !sellerQaAnswerDiv || !contextTypeInput) { return; } // 只在商家后台执行
+                const questionText = sellerQaInput.value.trim();
+                if (!questionText) { sellerQaStatus.textContent = '请输入你的操作问题！'; setTimeout(() => { if(sellerQaStatus.textContent === '请输入你的操作问题！') sellerQaStatus.textContent = ''; }, 2000); return; }
+                sellerQaStatus.innerHTML = `<div class="spinner-border spinner-border-sm text-info" role="status"><span class="visually-hidden">处理中...</span></div><span class="ms-1 small">正在处理中...</span>`;
+                sellerQaButton.disabled = true; sellerQaInput.disabled = true; sellerQaInput.value = '';
+                let requestData = { question: questionText, context_type: contextTypeInput.value, history: sellerConversationHistory };
+                console.log("发送商家帮助请求数据:", JSON.stringify(requestData));
+                fetch('/qa/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestData) })
+                .then(response => {
+                    if (!response.ok) { return response.json().then(errData => { throw new Error(errData.error || `请求失败: ${response.status}`); }).catch(() => { throw new Error(`请求失败: ${response.status}`); }); }
+                    return response.json();
+                 })
+                .then(data => {
+                    console.log("收到商家帮助后端数据:", data);
+                    sellerQaStatus.innerHTML = '';
+                    if (data && data.answer) {
+                        sellerQaAnswerDiv.textContent = data.answer;
+                        sellerConversationHistory = data.history || [];
+                        console.log("商家问答历史已更新", sellerConversationHistory.length, "条");
+                    } else { sellerQaAnswerDiv.textContent = '未能获取回答。'; }
+                    sellerQaAnswerDiv.scrollTop = sellerQaAnswerDiv.scrollHeight;
+                })
+                .catch(error => { console.error('商家提问出错:', error); sellerQaStatus.innerHTML = ''; sellerQaAnswerDiv.textContent = `提问失败: ${error.message}.`; })
+                .finally(() => { sellerQaButton.disabled = false; sellerQaInput.disabled = false; sellerQaInput.focus(); });
+            }
+            if (sellerQaButton) { sellerQaButton.addEventListener('click', handleSellerQuestionSubmit); }
+            if (sellerQaInput) { sellerQaInput.addEventListener('keypress', function(event) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleSellerQuestionSubmit(); } }); }
+
+            // --- 商品详情页专属问答 ---
+            const detailQaInput = document.getElementById('qa-input-detail');
+            const detailQaButton = document.getElementById('qa-button-detail');
+            const detailQaStatus = document.getElementById('qa-status-detail');
+            const detailQaAnswerDiv = document.getElementById('qa-answer-detail');
+            const detailProductIdInput = document.getElementById('product-id-context');
+            let detailConversationHistory = [];
+
+            function handleDetailQuestionSubmit() {
+                 console.log("商品详情提问按钮点击！");
+                 if (!detailQaInput || !detailQaButton || !detailQaStatus || !detailQaAnswerDiv || !detailProductIdInput) { return; } // 只在商品详情页执行
+                const questionText = detailQaInput.value.trim();
+                if (!questionText) { detailQaStatus.textContent = '请输入关于本商品的问题！'; setTimeout(() => { if(detailQaStatus.textContent === '请输入关于本商品的问题！') detailQaStatus.textContent = ''; }, 2000); return; }
+                detailQaStatus.innerHTML = `<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">思考中...</span></div><span class="ms-1 small">正在思考中...</span>`;
+                detailQaButton.disabled = true; detailQaInput.disabled = true; detailQaInput.value = '';
+                let requestData = { question: questionText, product_id: detailProductIdInput.value, history: detailConversationHistory };
+                console.log("发送详情页提问数据:", JSON.stringify(requestData));
+                fetch('/qa/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestData) })
+                .then(response => {
+                    if (!response.ok) { return response.json().then(errData => { throw new Error(errData.error || `请求失败: ${response.status}`); }).catch(() => { throw new Error(`请求失败: ${response.status}`); }); }
+                    return response.json();
+                 })
+                .then(data => {
+                    console.log("收到详情页后端数据:", data);
+                    detailQaStatus.innerHTML = '';
+                    if (data && data.answer) {
+                        detailQaAnswerDiv.textContent = data.answer;
+                        detailConversationHistory = data.history || [];
+                        console.log("详情页历史已更新", detailConversationHistory.length, "条");
+                    } else { detailQaAnswerDiv.textContent = '未能获取回答。'; }
+                    detailQaAnswerDiv.scrollTop = detailQaAnswerDiv.scrollHeight;
+                })
+                .catch(error => { console.error('详情页提问出错:', error); detailQaStatus.innerHTML = ''; detailQaAnswerDiv.textContent = `提问失败: ${error.message}.`; })
+                .finally(() => { detailQaButton.disabled = false; detailQaInput.disabled = false; detailQaInput.focus(); });
+            }
+            if (detailQaButton) { detailQaButton.addEventListener('click', handleDetailQuestionSubmit); }
+            if (detailQaInput) { detailQaInput.addEventListener('keypress', function(event) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleDetailQuestionSubmit(); } }); }
+
         });
     </script>
     {# === script 块结束 === #}

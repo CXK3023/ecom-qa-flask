@@ -1,12 +1,12 @@
-# app/routes/admin.py
-# === vvv IMPORTS vvv ===
-from flask import Blueprint, render_template, abort, flash, redirect, url_for, request, current_app, Response # 添加 Response
+# app/routes/admin.py (SyntaxError Fix in import_products)
+# === vvv IMPORTS (保持不变) vvv ===
+from flask import Blueprint, render_template, abort, flash, redirect, url_for, request, current_app, Response
 from flask_login import login_required, current_user
-# --- 修改：导入 AiModel ---
-from ..models import FaqRule, User, Product, AiModel # <--- 添加 AiModel
+from ..models import FaqRule, User, Product, AiModel, EmbeddingModel, SystemSetting
 from .. import db
 from functools import wraps
 from ..services.data_service import clear_rules_cache
+# from ..services.embedding_service import generate_embedding # 在需要的地方导入
 from werkzeug.security import generate_password_hash
 import os
 from werkzeug.utils import secure_filename
@@ -17,7 +17,8 @@ from datetime import datetime
 
 admin = Blueprint('admin', __name__)
 
-# === vvv HELPER FUNCTIONS (Image Handling - 保持不变) vvv ===
+# === vvv HELPER FUNCTIONS (保持不变) vvv ===
+# ... (allowed_file, save_product_image, delete_product_image 代码不变) ...
 def allowed_file(filename):
     """检查文件扩展名是否允许"""
     allowed_extensions = current_app.config.get('ALLOWED_EXTENSIONS')
@@ -88,6 +89,7 @@ def delete_product_image(image_filename):
         return False
 # === ^^^ HELPER FUNCTIONS ^^^ ===
 
+
 # --- 权限控制装饰器 (保持不变) ---
 def admin_required(f):
     @wraps(f)
@@ -101,6 +103,7 @@ def admin_required(f):
 # ============================================
 # === ROUTES FOR RULE MANAGEMENT (保持不变) ===
 # ============================================
+# ... (list_rules, add_rule, edit_rule, delete_rule 代码不变) ...
 @admin.route('/rules')
 @login_required
 @admin_required
@@ -192,10 +195,10 @@ def delete_rule(rule_id):
         db.session.rollback()
         flash(f'删除规则时发生错误: {e}', 'error')
     return redirect(url_for('admin.list_rules'))
-
 # ============================================
 # === ROUTES FOR USER MANAGEMENT (保持不变) ===
 # ============================================
+# ... (list_users, view_user, edit_user, reset_user_password, delete_user 代码不变) ...
 @admin.route('/users')
 @login_required
 @admin_required
@@ -260,7 +263,7 @@ def edit_user(user_id):
 def reset_user_password(user_id):
     """Reset user's password to a default value."""
     user_to_reset = User.query.get_or_404(user_id)
-    temp_password = "Password123"
+    temp_password = "Password123" # 仍然使用这个不安全的密码作为示例
     try:
         user_to_reset.set_password(temp_password)
         db.session.commit()
@@ -293,10 +296,11 @@ def delete_user(user_id):
         db.session.rollback()
         flash(f'删除用户时发生错误: {e}', 'error')
     return redirect(url_for('admin.list_users'))
-
 # ===================================================
-# === ROUTES FOR PRODUCT MANAGEMENT (ADMIN - 不变) ===
+# === ROUTES FOR PRODUCT MANAGEMENT (ADMIN - 保持不变) ===
 # ===================================================
+# ... (list_all_products, edit_product, toggle_product_status, delete_product, export_products 代码不变) ...
+# ... (除了 import_products 中的语法修复) ...
 @admin.route('/products')
 @login_required
 @admin_required
@@ -315,43 +319,54 @@ def list_all_products():
 @login_required
 @admin_required
 def edit_product(product_id):
-    """Allow admin to edit any product's details, including image."""
+    """Allow admin to edit any product's details, including image and embedding."""
+    from ..services.embedding_service import generate_embedding
     product_to_edit = Product.query.get_or_404(product_id)
     if request.method == 'POST':
         name = request.form.get('name')
-        description = request.form.get('description')
+        description = request.form.get('description', '')
         price_str = request.form.get('price')
         stock_str = request.form.get('stock')
         remove_image = request.form.get('remove_image')
         error = None; price = None; stock = None
-        # Basic validation
         if not name: error = '商品名称不能为空。'
         if not price_str: error = '价格不能为空。'
         if not stock_str: error = '库存不能为空。'
         if price_str and error is None:
             try: price = float(price_str);
             except ValueError: error = '价格必须是有效的数字。'
-            if price < 0: error = '价格不能为负数。'
+            if price is not None and price < 0: error = '价格不能为负数。'
         if stock_str and error is None:
             try: stock = int(stock_str);
             except ValueError: error = '库存必须是有效的整数。'
-            if stock < 0: error = '库存不能为负数。'
-        # Image handling
+            if stock is not None and stock < 0: error = '库存不能为负数。'
+
         new_image_filename = None; delete_current_image = False
         if error is None:
             image_file = request.files.get('product_image')
             if remove_image:
                 delete_current_image = True
-                if image_file and image_file.filename != '': flash('您已选择删除当前图片，新上传的图片将被忽略。', 'warning')
             elif image_file and image_file.filename != '':
                 new_image_filename = save_product_image(image_file, product_to_edit.image_url)
-        # Update DB
+
+        serialized_embedding = None
+        if error is None:
+            text_to_embed = f"商品名称: {name}\n商品描述: {description}"
+            try:
+                serialized_embedding = generate_embedding(text_to_embed)
+                if serialized_embedding is None: flash('警告：未能成功更新商品内容的向量表示。', 'warning')
+                else: flash('商品向量已更新。', 'info')
+            except Exception as e:
+                flash(f'警告：更新商品向量时发生意外错误: {e}', 'warning')
+                print(f"ERROR embedding admin edit (ID: {product_id}): {e}", exc_info=True)
+
         if error is None:
             product_to_edit.name = name; product_to_edit.description = description
             product_to_edit.price = price; product_to_edit.stock = stock
             if delete_current_image:
-                if product_to_edit.image_url and delete_product_image(product_to_edit.image_url): product_to_edit.image_url = None
+                 if product_to_edit.image_url and delete_product_image(product_to_edit.image_url): product_to_edit.image_url = None
             elif new_image_filename: product_to_edit.image_url = new_image_filename
+            if serialized_embedding is not None: product_to_edit.embedding = serialized_embedding
             try:
                 db.session.commit()
                 flash(f'商品 "{product_to_edit.name}" (ID: {product_id}) 更新成功！', 'success')
@@ -414,11 +429,13 @@ def export_products():
         return Response(output, mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename={filename}"})
     except Exception as e: flash(f"导出商品数据时出错: {e}", "error"); return redirect(url_for('admin.list_all_products'))
 
+# --- 修改：修复 import_products 中的语法错误 ---
 @admin.route('/products/import', methods=['POST'])
 @login_required
 @admin_required
 def import_products():
-    """Import products from an uploaded CSV file."""
+    """Import products from an uploaded CSV file, including embedding generation."""
+    from ..services.embedding_service import generate_embedding
     if 'import_file' not in request.files: flash('错误：请求中未找到文件部分。', 'error'); return redirect(url_for('admin.list_all_products'))
     file = request.files['import_file']
     if file.filename == '': flash('错误：未选择任何文件。', 'error'); return redirect(url_for('admin.list_all_products'))
@@ -429,22 +446,33 @@ def import_products():
             required_columns = ['Name', 'Price', 'Stock', 'Seller Username']
             header = csv_reader.fieldnames
             if not header or not all(col in header for col in required_columns): flash(f"CSV 文件格式错误：必须包含列: {', '.join(required_columns)}", 'error'); return redirect(url_for('admin.list_all_products'))
+
             products_to_add = []; errors = []; success_count = 0; line_number = 1; seller_cache = {}
+            successful_imports_details = []
+
             for row in csv_reader:
                 line_number += 1; row_errors = []
-                # Extract and validate data... (logic remains the same)
                 name = row.get('Name', '').strip(); description = row.get('Description', '').strip(); price_str = row.get('Price', '').strip(); stock_str = row.get('Stock', '').strip()
                 status = row.get('Status', 'active').strip().lower(); image_filename = row.get('Image Filename', '').strip(); seller_username = row.get('Seller Username', '').strip()
                 if not name: row_errors.append("商品名称不能为空"); price = None; stock = None
                 if not price_str: row_errors.append("价格不能为空")
                 if not stock_str: row_errors.append("库存不能为空")
                 if not seller_username: row_errors.append("卖家用户名不能为空")
-                try: price = float(price_str);
-                except: row_errors.append("价格必须是有效的数字")
-                if price is not None and price < 0: row_errors.append("价格不能为负数")
-                try: stock = int(stock_str)
-                except: row_errors.append("库存必须是有效的整数")
-                if stock is not None and stock < 0: row_errors.append("库存不能为负数")
+
+                # === vvv 修复语法错误 vvv ===
+                try:
+                    price = float(price_str)
+                    if price is not None and price < 0: row_errors.append("价格不能为负数")
+                except ValueError: # <-- 明确捕获 ValueError
+                    row_errors.append("价格必须是有效的数字")
+
+                try:
+                    stock = int(stock_str)
+                    if stock is not None and stock < 0: row_errors.append("库存不能为负数")
+                except ValueError: # <-- 明确捕获 ValueError
+                    row_errors.append("库存必须是有效的整数")
+                # === ^^^ 修复语法错误 ^^^ ===
+
                 if status not in ['active', 'inactive']: row_errors.append(f"无效的状态值 '{status}'"); status = 'active'
                 seller_id = None
                 if seller_username:
@@ -463,159 +491,268 @@ def import_products():
                         if not os.path.exists(image_path): row_errors.append(f"警告：图片文件 '{image_filename}' 在服务器上传目录中未找到")
                         else: image_url_to_save = image_filename
                     else: row_errors.append("错误：服务器未配置图片上传目录")
-                # Add product if no errors
+
+                serialized_embedding = None
                 if not row_errors:
-                    products_to_add.append(Product(name=name, description=description, price=price, stock=stock, status=status, seller_id=seller_id, image_url=image_url_to_save)); success_count += 1
+                    text_to_embed = f"商品名称: {name}\n商品描述: {description}"
+                    try:
+                        serialized_embedding = generate_embedding(text_to_embed)
+                        if serialized_embedding is None: errors.append(f"第 {line_number} 行警告: 商品 '{name}' 的向量生成失败。")
+                    except Exception as e:
+                        errors.append(f"第 {line_number} 行警告: 商品 '{name}' 生成向量时出错: {e}")
+                        print(f"ERROR embedding import (Line {line_number}, Name: {name}): {e}", exc_info=True)
+
+                if not row_errors:
+                    products_to_add.append(Product(
+                        name=name, description=description, price=price, stock=stock,
+                        status=status, seller_id=seller_id, image_url=image_url_to_save,
+                        embedding=serialized_embedding
+                    ));
+                    successful_imports_details.append(name)
+                    success_count += 1
                 else: errors.append(f"第 {line_number} 行错误: {'; '.join(row_errors)}")
-            # Commit to DB
+
             if products_to_add:
-                try: db.session.add_all(products_to_add); db.session.commit(); flash(f"成功导入 {success_count} 件商品。", "success")
-                except Exception as e: db.session.rollback(); flash(f"导入过程中发生数据库错误: {e}", "error"); errors.append(f"数据库错误导致所有 {success_count} 个准备导入的商品失败。"); success_count = 0
+                 try:
+                    db.session.add_all(products_to_add)
+                    db.session.commit()
+                    flash(f"成功导入 {success_count} 件商品: {', '.join(successful_imports_details[:5])}{'...' if success_count > 5 else ''}", "success")
+                 except Exception as e:
+                    db.session.rollback(); flash(f"导入过程中发生数据库错误: {e}", "error")
+                    errors.append(f"数据库错误导致 {success_count} 个准备导入的商品失败。"); success_count = 0
             elif not errors: flash("文件中没有可导入的有效商品数据。", "warning")
-            # Flash errors
+
             if errors:
-                error_limit = 10; flash(f"导入过程中遇到 {len(errors)} 个错误:", "danger")
-                for i, error_msg in enumerate(errors):
-                    if i < error_limit: flash(f"- {error_msg}", "danger")
-                    elif i == error_limit: flash(f"- ... (还有 {len(errors) - error_limit} 个错误未显示)", "danger"); break
-        except Exception as e: flash(f"处理 CSV 文件时发生未知错误: {e}", "error")
+                 error_limit = 10; flash(f"导入过程中遇到 {len(errors)} 个错误或警告:", "danger")
+                 for i, error_msg in enumerate(errors):
+                     level = "danger" if "错误:" in error_msg else "warning"; flash(f"- {error_msg}", level)
+                     if i >= error_limit -1 and len(errors) > error_limit: flash(f"- ... (还有 {len(errors) - error_limit} 个错误/警告未显示)", "danger"); break
+        except Exception as e:
+             flash(f"处理 CSV 文件时发生未知错误: {e}", "error")
+             print(f"ERROR processing CSV import: {e}", exc_info=True)
     else: flash("错误：请上传有效的 .csv 文件。", "error")
+
     return redirect(url_for('admin.list_all_products'))
 
-# ======================================
-# === vvv 新增：AI 模型管理路由 vvv ===
-# ======================================
-
-@admin.route('/models')
+# ==================================================
+# === ROUTES FOR CHAT MODEL MANAGEMENT (保持不变) ===
+# ==================================================
+# ... (list_chat_models, add_chat_model, edit_chat_model, delete_chat_model, set_active_chat_model 代码不变) ...
+@admin.route('/chat_models')
 @login_required
 @admin_required
-def list_models():
-    """显示所有 AI 模型列表"""
+def list_chat_models():
+    """显示所有 AI 对话模型列表"""
     try:
         all_models = AiModel.query.order_by(AiModel.id).all()
     except Exception as e:
-        flash(f"加载 AI 模型列表时出错: {e}", 'error')
+        flash(f"加载对话模型列表时出错: {e}", 'error')
         all_models = []
-    return render_template('admin/models_list.html', models=all_models)
+    return render_template('admin/chat_models_list.html', models=all_models)
 
-@admin.route('/models/add', methods=['GET', 'POST'])
+@admin.route('/chat_models/add', methods=['GET', 'POST'])
 @login_required
 @admin_required
-def add_model():
-    """添加新的 AI 模型"""
+def add_chat_model():
+    """添加新的 AI 对话模型"""
     if request.method == 'POST':
         model_name = request.form.get('model_name', '').strip()
         display_name = request.form.get('display_name', '').strip()
         description = request.form.get('description', '').strip()
         error = None
-
-        if not model_name:
-            error = "模型名称 (API Name) 不能为空。"
+        if not model_name: error = "模型名称 (API Name) 不能为空。"
         else:
             existing_model = AiModel.query.filter_by(model_name=model_name).first()
-            if existing_model:
-                error = f"模型名称 '{model_name}' 已存在，请使用其他名称。"
-
+            if existing_model: error = f"对话模型名称 '{model_name}' 已存在。"
         if error is None:
             try:
-                new_model = AiModel(
-                    model_name=model_name,
-                    display_name=display_name if display_name else None,
-                    description=description if description else None
-                )
+                new_model = AiModel(model_name=model_name, display_name=display_name or None, description=description or None)
                 db.session.add(new_model)
                 db.session.commit()
-                flash(f"AI 模型 '{model_name}' 添加成功！", 'success')
-                return redirect(url_for('admin.list_models'))
+                flash(f"对话模型 '{model_name}' 添加成功！", 'success')
+                return redirect(url_for('admin.list_chat_models'))
             except Exception as e:
-                db.session.rollback()
-                flash(f"添加模型时发生数据库错误: {e}", 'error')
-        else:
-            flash(error, 'error')
+                db.session.rollback(); flash(f"添加对话模型时发生数据库错误: {e}", 'error')
+        else: flash(error, 'error')
+    return render_template('admin/add_edit_chat_model.html', action='add', form_data=request.form)
 
-    return render_template('admin/add_edit_model.html', action='add', form_data=request.form)
-
-@admin.route('/models/edit/<int:model_id>', methods=['GET', 'POST'])
+@admin.route('/chat_models/edit/<int:model_id>', methods=['GET', 'POST'])
 @login_required
 @admin_required
-def edit_model(model_id):
-    """编辑现有的 AI 模型"""
+def edit_chat_model(model_id):
+    """编辑现有的 AI 对话模型"""
     model_to_edit = AiModel.query.get_or_404(model_id)
-
     if request.method == 'POST':
         model_name = request.form.get('model_name', '').strip()
         display_name = request.form.get('display_name', '').strip()
         description = request.form.get('description', '').strip()
         error = None
-
-        if not model_name:
-            error = "模型名称 (API Name) 不能为空。"
+        if not model_name: error = "模型名称 (API Name) 不能为空。"
         else:
             existing_model = AiModel.query.filter(AiModel.model_name == model_name, AiModel.id != model_id).first()
-            if existing_model:
-                error = f"模型名称 '{model_name}' 已被其他模型使用。"
-
+            if existing_model: error = f"对话模型名称 '{model_name}' 已被其他模型使用。"
         if error is None:
             try:
-                model_to_edit.model_name = model_name
-                model_to_edit.display_name = display_name if display_name else None
-                model_to_edit.description = description if description else None
-                db.session.commit()
-                flash(f"AI 模型 (ID: {model_id}) 更新成功！", 'success')
-                return redirect(url_for('admin.list_models'))
+                model_to_edit.model_name = model_name; model_to_edit.display_name = display_name or None; model_to_edit.description = description or None
+                db.session.commit(); flash(f"对话模型 (ID: {model_id}) 更新成功！", 'success')
+                return redirect(url_for('admin.list_chat_models'))
             except Exception as e:
-                db.session.rollback()
-                flash(f"更新模型时发生数据库错误: {e}", 'error')
-        else:
-            flash(error, 'error')
+                db.session.rollback(); flash(f"更新对话模型时发生数据库错误: {e}", 'error')
+        else: flash(error, 'error')
+    form_data = {'id': model_to_edit.id, 'model_name': request.form.get('model_name', model_to_edit.model_name), 'display_name': request.form.get('display_name', model_to_edit.display_name or ''), 'description': request.form.get('description', model_to_edit.description or '')}
+    return render_template('admin/add_edit_chat_model.html', action='edit', form_data=form_data)
 
-    form_data = {
-        'id': model_to_edit.id,
-        'model_name': request.form.get('model_name', model_to_edit.model_name),
-        'display_name': request.form.get('display_name', model_to_edit.display_name or ''),
-        'description': request.form.get('description', model_to_edit.description or '')
-    }
-    return render_template('admin/add_edit_model.html', action='edit', form_data=form_data)
-
-@admin.route('/models/delete/<int:model_id>', methods=['POST'])
+@admin.route('/chat_models/delete/<int:model_id>', methods=['POST'])
 @login_required
 @admin_required
-def delete_model(model_id):
-    """删除 AI 模型"""
+def delete_chat_model(model_id):
+    """删除 AI 对话模型"""
     model_to_delete = AiModel.query.get_or_404(model_id)
-
-    if model_to_delete.is_active:
-        flash(f"无法删除：模型 '{model_to_delete.model_name}' 是当前激活的模型。请先激活其他模型。", 'error')
-        return redirect(url_for('admin.list_models'))
-
+    if model_to_delete.is_active: flash(f"无法删除：对话模型 '{model_to_delete.model_name}' 是当前激活的模型。", 'error'); return redirect(url_for('admin.list_chat_models'))
     try:
-        model_name_deleted = model_to_delete.model_name
-        db.session.delete(model_to_delete)
-        db.session.commit()
-        flash(f"AI 模型 '{model_name_deleted}' (ID: {model_id}) 已成功删除！", 'success')
+        model_name_deleted = model_to_delete.model_name; db.session.delete(model_to_delete); db.session.commit()
+        flash(f"对话模型 '{model_name_deleted}' (ID: {model_id}) 已成功删除！", 'success')
     except Exception as e:
-        db.session.rollback()
-        flash(f"删除模型时发生错误: {e}", 'error')
+        db.session.rollback(); flash(f"删除对话模型时发生错误: {e}", 'error')
+    return redirect(url_for('admin.list_chat_models'))
 
-    return redirect(url_for('admin.list_models'))
-
-@admin.route('/models/set_active/<int:model_id>', methods=['POST'])
+@admin.route('/chat_models/set_active/<int:model_id>', methods=['POST'])
 @login_required
 @admin_required
-def set_active_model(model_id):
-    """将指定模型设为活动状态，并将其他模型设为非活动状态"""
+def set_active_chat_model(model_id):
+    """将指定对话模型设为活动状态"""
     model_to_activate = AiModel.query.get_or_404(model_id)
-
     try:
-        # 使用 SQLAlchemy Core API 或分开查询更新可能更安全，但对于少量模型，这样也可以
-        AiModel.query.update({AiModel.is_active: False})
-        model_to_activate.is_active = True
-        db.session.commit() # 提交两次更新
-        flash(f"已成功激活 AI 模型：'{model_to_activate.model_name}'！", 'success')
+        AiModel.query.update({AiModel.is_active: False}); model_to_activate.is_active = True; db.session.commit()
+        flash(f"已成功激活对话模型：'{model_to_activate.model_name}'！", 'success')
     except Exception as e:
-        db.session.rollback()
-        flash(f"激活模型时发生错误: {e}", 'error')
+        db.session.rollback(); flash(f"激活对话模型时发生错误: {e}", 'error')
+    return redirect(url_for('admin.list_chat_models'))
+# ===================================================
+# === ROUTES FOR EMBEDDING MODEL MANAGEMENT (保持不变) ===
+# ===================================================
+# ... (list_embedding_models, add_embedding_model, edit_embedding_model, delete_embedding_model, set_active_embedding_model 代码不变) ...
+@admin.route('/embedding_models')
+@login_required
+@admin_required
+def list_embedding_models():
+    """显示所有 Embedding 模型列表"""
+    try:
+        all_models = EmbeddingModel.query.order_by(EmbeddingModel.id).all()
+    except Exception as e:
+        flash(f"加载 Embedding 模型列表时出错: {e}", 'error')
+        all_models = []
+    return render_template('admin/embedding_models_list.html', models=all_models)
 
-    return redirect(url_for('admin.list_models'))
+@admin.route('/embedding_models/add', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def add_embedding_model():
+    """添加新的 Embedding 模型"""
+    if request.method == 'POST':
+        model_name = request.form.get('model_name', '').strip()
+        display_name = request.form.get('display_name', '').strip()
+        description = request.form.get('description', '').strip()
+        invocation_method = request.form.get('invocation_method', 'local').strip()
+        error = None
+        if not model_name: error = "模型名称不能为空。"
+        else:
+            existing_model = EmbeddingModel.query.filter_by(model_name=model_name).first()
+            if existing_model: error = f"Embedding 模型名称 '{model_name}' 已存在。"
+        if invocation_method not in ['local', 'remote_api']: error = "无效的调用方式选择。"
+        if error is None:
+            try:
+                new_model = EmbeddingModel(model_name=model_name, display_name=display_name or None, description=description or None, invocation_method=invocation_method)
+                db.session.add(new_model); db.session.commit()
+                flash(f"Embedding 模型 '{model_name}' 添加成功！", 'success')
+                return redirect(url_for('admin.list_embedding_models'))
+            except Exception as e:
+                db.session.rollback(); flash(f"添加 Embedding 模型时发生数据库错误: {e}", 'error')
+        else: flash(error, 'error')
+    return render_template('admin/add_edit_embedding_model.html', action='add', form_data=request.form)
 
-# === ^^^ 新增：AI 模型管理路由 ^^^ ===
+@admin.route('/embedding_models/edit/<int:model_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_embedding_model(model_id):
+    """编辑现有的 Embedding 模型"""
+    model_to_edit = EmbeddingModel.query.get_or_404(model_id)
+    if request.method == 'POST':
+        model_name = request.form.get('model_name', '').strip()
+        display_name = request.form.get('display_name', '').strip()
+        description = request.form.get('description', '').strip()
+        invocation_method = request.form.get('invocation_method', 'local').strip()
+        error = None
+        if not model_name: error = "模型名称不能为空。"
+        else:
+            existing_model = EmbeddingModel.query.filter(EmbeddingModel.model_name == model_name, EmbeddingModel.id != model_id).first()
+            if existing_model: error = f"Embedding 模型名称 '{model_name}' 已被其他模型使用。"
+        if invocation_method not in ['local', 'remote_api']: error = "无效的调用方式选择。"
+        if error is None:
+            try:
+                model_to_edit.model_name = model_name; model_to_edit.display_name = display_name or None; model_to_edit.description = description or None; model_to_edit.invocation_method = invocation_method
+                db.session.commit(); flash(f"Embedding 模型 (ID: {model_id}) 更新成功！", 'success')
+                return redirect(url_for('admin.list_embedding_models'))
+            except Exception as e:
+                db.session.rollback(); flash(f"更新 Embedding 模型时发生数据库错误: {e}", 'error')
+        else: flash(error, 'error')
+    form_data = {'id': model_to_edit.id, 'model_name': request.form.get('model_name', model_to_edit.model_name), 'display_name': request.form.get('display_name', model_to_edit.display_name or ''), 'description': request.form.get('description', model_to_edit.description or ''), 'invocation_method': request.form.get('invocation_method', model_to_edit.invocation_method)}
+    return render_template('admin/add_edit_embedding_model.html', action='edit', form_data=form_data)
+
+@admin.route('/embedding_models/delete/<int:model_id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_embedding_model(model_id):
+    """删除 Embedding 模型"""
+    model_to_delete = EmbeddingModel.query.get_or_404(model_id)
+    if model_to_delete.is_active: flash(f"无法删除：Embedding 模型 '{model_to_delete.model_name}' 是当前激活的模型。", 'error'); return redirect(url_for('admin.list_embedding_models'))
+    try:
+        model_name_deleted = model_to_delete.model_name; db.session.delete(model_to_delete); db.session.commit()
+        flash(f"Embedding 模型 '{model_name_deleted}' (ID: {model_id}) 已成功删除！", 'success')
+    except Exception as e:
+        db.session.rollback(); flash(f"删除 Embedding 模型时发生错误: {e}", 'error')
+    return redirect(url_for('admin.list_embedding_models'))
+
+@admin.route('/embedding_models/set_active/<int:model_id>', methods=['POST'])
+@login_required
+@admin_required
+def set_active_embedding_model(model_id):
+    """将指定 Embedding 模型设为活动状态"""
+    model_to_activate = EmbeddingModel.query.get_or_404(model_id)
+    try:
+        EmbeddingModel.query.update({EmbeddingModel.is_active: False}); model_to_activate.is_active = True; db.session.commit()
+        flash(f"已成功激活 Embedding 模型：'{model_to_activate.model_name}' ({model_to_activate.invocation_method})！", 'success')
+    except Exception as e:
+        db.session.rollback(); flash(f"激活 Embedding 模型时发生错误: {e}", 'error')
+    return redirect(url_for('admin.list_embedding_models'))
+# =========================================
+# === ROUTES FOR SYSTEM SETTINGS (保持不变) ===
+# =========================================
+# ... (manage_settings 代码不变) ...
+@admin.route('/settings', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def manage_settings():
+    """管理系统设置"""
+    settings_dict = {}
+    try:
+        settings = SystemSetting.query.all()
+        for setting in settings:
+            settings_dict[setting.key] = setting.value
+    except Exception as e:
+        flash(f'加载系统设置时出错: {e}', 'error')
+
+    if request.method == 'POST':
+        settings_to_update = {'enable_vector_search': request.form.get('enable_vector_search')}
+        try:
+            for key, raw_value in settings_to_update.items():
+                value = 'true' if key in request.form else 'false'
+                setting = SystemSetting.query.filter_by(key=key).first()
+                if setting: setting.value = value
+                else: new_setting = SystemSetting(key=key, value=value); db.session.add(new_setting)
+            db.session.commit()
+            flash('系统设置已成功更新！', 'success')
+            return redirect(url_for('admin.manage_settings'))
+        except Exception as e:
+            db.session.rollback(); flash(f'更新系统设置时发生错误: {e}', 'error')
+    return render_template('admin/manage_settings.html', settings=settings_dict)

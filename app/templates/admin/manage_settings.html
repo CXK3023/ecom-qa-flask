@@ -1,0 +1,46 @@
+{# app/templates/admin/manage_settings.html #}
+{% extends "layouts/base.html" %}
+
+{% block title %}系统设置{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h2 class="mb-4"><i class="bi bi-sliders"></i> 系统设置</h2>
+
+            <form method="post">
+                {# CSRF Token (if using Flask-WTF) #}
+                {# {{ form.csrf_token }} #}
+
+                <div class="card mb-4">
+                    <div class="card-header">AI 增强功能</div>
+                    <div class="card-body">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="enable_vector_search" name="enable_vector_search"
+                                   {% if settings.get('enable_vector_search') == 'true' %}checked{% endif %}>
+                            <label class="form-check-label" for="enable_vector_search">
+                                启用商品向量搜索 (全局)
+                            </label>
+                            <div class="form-text">
+                                启用后，在通用问答场景下，系统会尝试根据问题语义查找相关商品（需已配置活动向量模型），并将信息提供给 AI 作为参考。禁用则不进行向量搜索。
+                            </div>
+                        </div>
+                        {# 在这里可以添加更多相关的系统设置 #}
+
+                    </div>
+                </div>
+
+                {# 可以添加其他设置卡片 #}
+                {# <div class="card mb-4"> ... </div> #}
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    {# 可以添加一个“恢复默认”按钮，但需要后端逻辑支持 #}
+                    {# <button type="button" class="btn btn-secondary me-md-2">恢复默认</button> #}
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> 保存设置
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

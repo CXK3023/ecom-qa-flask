@@ -1,8 +1,8 @@
-{# ecom-qa-flask/app/templates/admin/add_edit_model.html #}
+{# ecom-qa-flask/app/templates/admin/add_edit_chat_model.html #}
 {% extends "layouts/base.html" %}
 
 {# 根据 action 动态设置标题 #}
-{% block title %}{% if action == 'add' %}添加新 AI 模型{% else %}编辑 AI 模型 ID: {{ form_data.id }}{% endif %}{% endblock %}
+{% block title %}{% if action == 'add' %}添加新对话模型{% else %}编辑对话模型 ID: {{ form_data.id }}{% endif %}{% endblock %}
 
 {% block content %}
     <div class="row justify-content-center">
@@ -10,21 +10,26 @@
             {# 根据 action 动态设置 H2 标题 #}
             <h2 class="mb-4">
                 {% if action == 'add' %}
-                    <i class="bi bi-plus-circle-dotted"></i> 添加新 AI 模型
+                    <i class="bi bi-chat-dots-fill"></i> 添加新对话模型
                 {% else %}
-                    <i class="bi bi-pencil-square"></i> 编辑 AI 模型 (ID: {{ form_data.id }})
+                    <i class="bi bi-pencil-square"></i> 编辑对话模型 (ID: {{ form_data.id }})
                 {% endif %}
             </h2>
 
-            {# 表单提交到当前 URL (Flask 会自动匹配 /admin/models/add 或 /admin/models/edit/<id>) #}
-            <form method="post">
+            {# 表单提交到对应的 chat model 路由 #}
+            <form method="post"> {# Action 会自动根据当前 URL 决定 #}
+                {# CSRF Token (if using Flask-WTF) #}
+                {# {{ form.csrf_token }} #}
+
                 {# 模型名称 (API Name) - 必填 #}
                 <div class="mb-3">
                     <label for="model_name" class="form-label">模型名称 (API Name) <span class="text-danger">*</span></label>
                     <input type="text" id="model_name" name="model_name" class="form-control"
                            value="{{ form_data.get('model_name', '') }}"
                            required placeholder="例如：gpt-4.1, gpt-3.5-turbo">
-                    <div class="form-text">这是实际传递给 OpenAI API 的模型标识符。</div>
+                    <div class="form-text">
+                        这是实际传递给 OpenAI Chat Completion API 的模型标识符。
+                    </div>
                 </div>
 
                 {# 显示名称 - 可选 #}
@@ -36,6 +41,8 @@
                      <div class="form-text">在管理界面显示的友好名称，方便识别。</div>
                 </div>
 
+                {# --- 调用方式选择框已移除 --- #}
+
                 {# 描述 - 可选 #}
                 <div class="mb-3">
                     <label for="description" class="form-label">描述 (可选)</label>
@@ -43,13 +50,12 @@
                               placeholder="简单描述模型的特点或用途...">{{ form_data.get('description', '') }}</textarea>
                 </div>
 
-                {# 提交按钮和取消链接 #}
+                {# 提交按钮和取消链接，指向 chat model 列表 #}
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                    <a href="{{ url_for('admin.list_models') }}" class="btn btn-secondary me-md-2">取消</a>
+                    <a href="{{ url_for('admin.list_chat_models') }}" class="btn btn-secondary me-md-2">取消</a>
                     <button type="submit" class="btn btn-{% if action == 'add' %}success{% else %}warning{% endif %}">
                         {% if action == 'add' %}确认添加{% else %}保存更改{% endif %}
                     </button>
-                    {# 按钮颜色和文字根据 action 变化 #}
                 </div>
             </form>
         </div>

@@ -4,15 +4,17 @@ from flask_login import login_required, current_user
 from ..models import Product, User
 from .. import db
 from functools import wraps
-# === vvv NEW IMPORTS vvv ===
 import os
 from werkzeug.utils import secure_filename
-# === ^^^ NEW IMPORTS ^^^ ===
+# === vvv 新增：导入 embedding 服务 vvv ===
+from ..services.embedding_service import generate_embedding
+# === ^^^ 新增 ^^^ ===
 
 
 seller = Blueprint('seller', __name__)
 
-# === vvv NEW HELPER FUNCTION vvv ===
+# === vvv HELPER FUNCTIONS (Image Handling - 保持不变) vvv ===
+# ... (allowed_file, save_product_image, delete_product_image 函数代码保持不变) ...
 def allowed_file(filename):
     """检查文件扩展名是否允许"""
     return '.' in filename and \
@@ -29,8 +31,6 @@ def save_product_image(file, current_image_filename=None):
 
     if allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        # 注意：为了防止文件名冲突，实践中通常会重命名文件（例如加时间戳或UUID）
-        # filename = str(uuid.uuid4()) + "_" + filename
         save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
 
         # --- 删除旧图片 (如果提供了旧文件名且新文件名不同) ---
@@ -42,7 +42,6 @@ def save_product_image(file, current_image_filename=None):
                     print(f"DEBUG: Deleted old image: {old_image_path}")
                 except Exception as e:
                     print(f"ERROR deleting old image {old_image_path}: {e}")
-                    # 不阻塞主流程，但记录错误
                     flash(f"删除旧图片 '{current_image_filename}' 失败: {e}", 'warning')
             else:
                  print(f"WARN: Old image path not found: {old_image_path}")
@@ -50,7 +49,6 @@ def save_product_image(file, current_image_filename=None):
 
         # --- 保存新图片 ---
         try:
-            # 确保上传目录存在
             os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
             file.save(save_path)
             print(f"DEBUG: Image saved to {save_path}")
@@ -82,11 +80,10 @@ def delete_product_image(image_filename):
     else:
         print(f"WARN: Image path not found, cannot delete: {image_path}")
         return False
+# === ^^^ HELPER FUNCTIONS ^^^ ===
 
-# === ^^^ NEW HELPER FUNCTIONS ^^^ ===
 
-
-# --- 自定义装饰器：检查用户是否为商家 ---
+# --- 自定义装饰器：检查用户是否为商家 (保持不变) ---
 def seller_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -96,7 +93,7 @@ def seller_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- 商家仪表盘路由 ---
+# --- 商家仪表盘路由 (保持不变) ---
 @seller.route('/dashboard')
 @login_required
 @seller_required
@@ -104,14 +101,14 @@ def dashboard():
     products = Product.query.filter_by(seller_id=current_user.id).order_by(Product.id.desc()).all()
     return render_template('seller/dashboard.html', products=products)
 
-# --- 添加商品路由 (修改版) ---
+# --- 添加商品路由 (修改版：添加 Embedding 生成) ---
 @seller.route('/add', methods=['GET', 'POST'])
 @login_required
 @seller_required
 def add_product():
     if request.method == 'POST':
         name = request.form.get('name')
-        description = request.form.get('description')
+        description = request.form.get('description', '') # 获取描述，默认为空字符串
         price_str = request.form.get('price')
         stock_str = request.form.get('stock')
         error = None
@@ -134,26 +131,40 @@ def add_product():
             except ValueError: error = '库存必须是有效的整数。'
         # --- 基本数据验证结束 ---
 
-        # === vvv 图片处理 vvv ===
+        # === 图片处理 (保持不变) ===
         image_file = request.files.get('product_image')
         saved_image_filename = None
-        if error is None: # 只有在基本数据验证通过后才尝试处理图片
+        if error is None:
             saved_image_filename = save_product_image(image_file)
-            # 如果保存图片失败 (例如格式不对)，save_product_image 会 flash 错误，这里不需要额外处理 error
-        # === ^^^ 图片处理 ^^^ ===
+        # === 图片处理结束 ===
 
+        # === vvv Embedding 生成 vvv ===
+        serialized_embedding = None
+        if error is None: # 只有在基本验证通过后才尝试生成
+            text_to_embed = f"商品名称: {name}\n商品描述: {description}" # 组合名称和描述
+            try:
+                serialized_embedding = generate_embedding(text_to_embed)
+                if serialized_embedding is None:
+                    # generate_embedding 内部出错会返回 None
+                    flash('警告：未能成功生成商品内容的向量表示。搜索相关性可能受影响。', 'warning')
+                else:
+                     flash('商品向量已生成。', 'info') # 可以添加一个成功的提示
+            except Exception as e:
+                # 捕获 generate_embedding 可能抛出的未预料错误
+                flash(f'警告：生成商品向量时发生意外错误: {e}', 'warning')
+                print(f"ERROR generating embedding during product add: {e}", exc_info=True)
+        # === ^^^ Embedding 生成 ^^^ ===
 
         if error is None:
-            # 创建新商品对象，关联当前商家
+            # 创建新商品对象
             new_product = Product(
                 name=name,
                 description=description,
                 price=price,
                 stock=stock,
                 seller_id=current_user.id,
-                # === vvv 添加 image_url vvv ===
-                image_url=saved_image_filename # 使用保存后的文件名，可能为 None
-                # === ^^^ 添加 image_url ^^^ ===
+                image_url=saved_image_filename,
+                embedding=serialized_embedding # <--- 保存向量
             )
             try:
                 db.session.add(new_product)
@@ -162,18 +173,16 @@ def add_product():
                 return redirect(url_for('seller.dashboard'))
             except Exception as e:
                 db.session.rollback()
-                flash(f'添加商品时出错: {e}', 'error')
-                # 如果保存数据库失败，但图片已经保存，需要考虑是否删除已保存的图片
+                flash(f'添加商品时发生数据库错误: {e}', 'error')
                 if saved_image_filename:
                     delete_product_image(saved_image_filename)
-        # 注意：如果验证失败 (error is not None)，或者图片处理失败 (flash 消息已发出)，流程会自然走到下面的 return render_template
+        # 注意：如果验证失败或图片处理失败或数据库保存失败，流程会自然走到下面的 return render_template
 
-    # 如果是 GET 请求或 POST 出错，显示添加表单
-    # request.form 会自动传递到模板，用于保留用户输入
+    # GET 请求或 POST 出错
     return render_template('seller/add_product.html')
 
 
-# --- 编辑商品路由 (修改版) ---
+# --- 编辑商品路由 (修改版：添加 Embedding 更新) ---
 @seller.route('/edit/<int:product_id>', methods=['GET', 'POST'])
 @login_required
 @seller_required
@@ -185,48 +194,54 @@ def edit_product(product_id):
 
     if request.method == 'POST':
         name = request.form.get('name')
-        description = request.form.get('description')
+        description = request.form.get('description', '') # 获取描述
         price_str = request.form.get('price')
         stock_str = request.form.get('stock')
-        remove_image = request.form.get('remove_image') # 获取 "删除图片" 复选框的值
+        remove_image = request.form.get('remove_image')
         error = None
 
-        # --- 基本数据验证 (同添加) ---
+        # --- 基本数据验证 (保持不变) ---
         if not name: error = '商品名称不能为空。'
         if not price_str: error = '价格不能为空。'
         if not stock_str: error = '库存不能为空。'
         price = None
         stock = None
         if price_str:
-            try:
-                price = float(price_str)
-                if price < 0: error = '价格不能为负数。'
+            try: price = float(price_str);
             except ValueError: error = '价格必须是有效的数字。'
+            if price is not None and price < 0: error = '价格不能为负数。'
         if stock_str:
-            try:
-                stock = int(stock_str)
-                if stock < 0: error = '库存不能为负数。'
+            try: stock = int(stock_str);
             except ValueError: error = '库存必须是有效的整数。'
+            if stock is not None and stock < 0: error = '库存不能为负数。'
         # --- 基本数据验证结束 ---
 
-        # --- 图片处理逻辑 ---
+        # --- 图片处理逻辑 (保持不变) ---
         new_image_filename = None
         delete_current_image = False
-
-        if error is None: # 只有在基本数据验证通过后才处理图片相关操作
+        if error is None:
             image_file = request.files.get('product_image')
-
-            if remove_image: # 用户勾选了删除当前图片
+            if remove_image:
                 delete_current_image = True
-                # 如果勾选了删除，即使上传了新文件，我们也优先执行删除
-                if image_file and image_file.filename != '':
-                    flash('您已选择删除当前图片，新上传的图片将被忽略。', 'warning')
-            elif image_file and image_file.filename != '': # 用户没有勾选删除，并且上传了新文件
-                # 尝试保存新图片，同时传入当前图片的文件名以便删除旧图
+                if image_file and image_file.filename != '': flash('您已选择删除当前图片，新上传的图片将被忽略。', 'warning')
+            elif image_file and image_file.filename != '':
                 new_image_filename = save_product_image(image_file, product.image_url)
-                # 如果 new_image_filename 为 None，表示保存失败，错误信息已 flash
-            # else: 用户没勾选删除，也没上传新文件 -> 保持当前图片不变
         # --- 图片处理逻辑结束 ---
+
+        # === vvv Embedding 更新 vvv ===
+        serialized_embedding = None
+        if error is None: # 只有在基本验证通过后才尝试更新
+            text_to_embed = f"商品名称: {name}\n商品描述: {description}" # 使用更新后的名称和描述
+            try:
+                serialized_embedding = generate_embedding(text_to_embed)
+                if serialized_embedding is None:
+                    flash('警告：未能成功更新商品内容的向量表示。搜索相关性可能受影响。', 'warning')
+                else:
+                     flash('商品向量已更新。', 'info')
+            except Exception as e:
+                flash(f'警告：更新商品向量时发生意外错误: {e}', 'warning')
+                print(f"ERROR generating embedding during product edit (ID: {product_id}): {e}", exc_info=True)
+        # === ^^^ Embedding 更新 ^^^ ===
 
         if error is None:
             # 更新商品对象的属性
@@ -235,45 +250,36 @@ def edit_product(product_id):
             product.price = price
             product.stock = stock
 
-            original_image_url = product.image_url # 记录原始 URL，用于错误回滚
-
-            # 更新图片 URL
+            # 更新图片 URL (逻辑不变)
             if delete_current_image:
-                if product.image_url: # 只有当前确实有图片才执行删除
-                    if delete_product_image(product.image_url):
-                         product.image_url = None # 文件删除成功后，清空数据库记录
-                    else:
-                        # 文件删除失败，保持数据库记录不变，错误已 flash
-                        pass
-                else:
-                    # 本来就没有图片，无需操作
-                    pass
+                if product.image_url and delete_product_image(product.image_url):
+                     product.image_url = None
             elif new_image_filename:
-                 # 新图片保存成功 (旧图片已在 save_product_image 中尝试删除)
-                 product.image_url = new_image_filename # 更新数据库记录为新文件名
-            # else: # 保持不变的情况
-            #    pass
+                 product.image_url = new_image_filename
+
+            # === vvv 保存更新后的 Embedding vvv ===
+            if serialized_embedding is not None: # 只有成功生成才更新
+                product.embedding = serialized_embedding
+            elif product.embedding is not None: # 如果这次生成失败，但之前有值，可以选择保留旧值或清空
+                 # flash('警告：本次向量生成失败，保留之前的向量数据。', 'warning')
+                 pass # 这里选择保留旧值（不修改 product.embedding）
+            # === ^^^ 保存更新后的 Embedding ^^^ ===
 
             try:
-                db.session.commit() # 保存所有更改 (包括 image_url)
+                db.session.commit() # 保存所有更改
                 flash('商品信息更新成功！', 'success')
                 return redirect(url_for('seller.dashboard'))
             except Exception as e:
-                db.session.rollback() # 回滚数据库更改
+                db.session.rollback()
                 flash(f'更新商品时发生数据库错误: {e}', 'error')
-                # 数据库回滚后，product.image_url 会回到原始值
-                # 但如果新图片已保存，旧图片已删除，文件系统状态可能与数据库不一致
-                # 理想情况下需要更复杂的事务管理或补偿逻辑，这里简化处理
                 if new_image_filename and not delete_current_image:
-                    # 尝试删除刚刚保存的新图片，因为它没有被数据库记录
                     delete_product_image(new_image_filename)
-        # 注意：如果验证失败 (error is not None)，或者图片处理失败，流程会自然走到下面的 return render_template
+        # 注意：如果验证失败或处理失败，流程会自然走到下面的 return render_template
 
     # GET 请求或 POST 请求出错时，显示编辑表单
-    # 传递 product 对象用于预填充
     return render_template('seller/edit_product.html', product=product)
 
-# --- 删除商品路由 (修改版) ---
+# --- 删除商品路由 (保持不变) ---
 @seller.route('/delete/<int:product_id>', methods=['POST'])
 @login_required
 @seller_required
@@ -287,12 +293,12 @@ def delete_product(product_id):
     product_name = product.name # 记录商品名
 
     try:
-        db.session.delete(product) # 先从数据库删除记录
+        db.session.delete(product) # 从数据库删除记录
         db.session.commit()
         flash(f'商品 "{product_name}" 删除成功！', 'success')
         # 数据库删除成功后，再尝试删除对应的图片文件
         if image_filename_to_delete:
-             delete_product_image(image_filename_to_delete) # 调用删除图片的函数
+             delete_product_image(image_filename_to_delete)
     except Exception as e:
         db.session.rollback()
         flash(f'删除商品时发生数据库错误: {e}', 'error')

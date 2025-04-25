@@ -1,0 +1,97 @@
+{# ecom-qa-flask/app/templates/admin/embedding_models_list.html #}
+{% extends "layouts/base.html" %} {# 继承基础布局 #}
+
+{% block title %}向量模型管理{% endblock %} {# 页面标题 #}
+
+{% block content %} {# 主要内容 #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-cpu-fill"></i> AI 向量嵌入模型管理 (Embedding Models)</h2> {# 页面大标题 #}
+        {# 添加新模型的按钮，指向 embedding model 路由 #}
+        <a href="{{ url_for('admin.add_embedding_model') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> 添加新向量模型
+        </a>
+    </div>
+
+    {% if models %} {# 检查是否有模型数据传过来 #}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-bordered table-sm align-middle"> {# 使用 Bootstrap 表格样式 #}
+                <thead class="table-dark"> {# 表头深色背景 #}
+                    <tr>
+                        <th scope="col" style="width: 5%;">ID</th>
+                        <th scope="col" style="width: 20%;">模型名称 (API/Local Name)</th>
+                        <th scope="col" style="width: 15%;">显示名称</th>
+                        <th scope="col" style="width: 20%;">描述 (部分)</th> {# 调整宽度 #}
+                        <th scope="col" style="width: 10%;">调用方式</th> {# 新增列 #}
+                        <th scope="col" style="width: 10%;">是否激活</th>
+                        <th scope="col" style="width: 20%;">操作</th> {# 调整宽度 #}
+                    </tr>
+                </thead>
+                <tbody> {# 表格主体 #}
+                    {% for model in models %} {# 循环显示每个模型 #}
+                        <tr>
+                            <th scope="row">{{ model.id }}</th>
+                            <td><code>{{ model.model_name }}</code></td> {# API/Local Name 用 code 标签显示 #}
+                            <td>{{ model.display_name or '-' }}</td> {# 显示名称，如果为空则显示 '-' #}
+                            <td>{{ model.description | truncate(50, True, '...') if model.description else '-' }}</td> {# 显示部分描述 #}
+                            <td>
+                                {# 显示调用方式 #}
+                                {% if model.invocation_method == 'local' %}
+                                    <span class="badge bg-info">本地</span>
+                                {% elif model.invocation_method == 'remote_api' %}
+                                    <span class="badge bg-warning text-dark">远程 API</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ model.invocation_method }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {# 根据是否激活显示不同的徽章 #}
+                                {% if model.is_active %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> 是</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">否</span>
+                                {% endif %}
+                            </td>
+                            <td> {# 操作按钮列 #}
+                                {# 编辑按钮，指向 embedding model 路由 #}
+                                <a href="{{ url_for('admin.edit_embedding_model', model_id=model.id) }}" class="btn btn-sm btn-outline-secondary me-1" title="编辑模型信息">
+                                    <i class="bi bi-pencil"></i> 编辑
+                                </a>
+
+                                {# "设为活动" 按钮 (仅当模型当前未激活时显示)，指向 embedding model 路由 #}
+                                {% if not model.is_active %}
+                                <form method="post" action="{{ url_for('admin.set_active_embedding_model', model_id=model.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-success me-1" title="将此模型设为活动状态"
+                                            onclick="return confirm('确定要激活向量模型 “{{ model.model_name | escape }}” 吗？这将停用当前活动的向量模型。');"> {# 移除提示中的后半句 #}
+                                        <i class="bi bi-check-lg"></i> 设为活动
+                                    </button>
+                                </form>
+                                {% endif %}
+
+                                {# "删除" 按钮，指向 embedding model 路由 #}
+                                <form method="post" action="{{ url_for('admin.delete_embedding_model', model_id=model.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="删除模型"
+                                            {% if model.is_active %}disabled{% endif %} {# 如果是活动模型，禁用删除按钮 #}
+                                            onclick="return confirm('警告：确定要永久删除向量模型 “{{ model.model_name | escape }}” (ID: {{ model.id }}) 吗？\n{% if model.is_active %}此模型当前处于活动状态，无法删除。{% else %}此操作无法撤销！{% endif %}');">
+                                        <i class="bi bi-trash"></i> 删除
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %} {# 结束循环 #}
+                </tbody>
+            </table>
+        </div>
+        <div class="form-text">
+            提示：同一时间只能有一个向量模型处于活动状态。激活新模型会自动停用旧模型。
+            {# --- 修改：移除下面这行 --- #}
+            {# <strong class="text-primary">当有活动模型时，系统的全局向量搜索功能会自动启用。</strong> #}
+            活动模型无法被删除。全局向量搜索功能需在“系统设置”中单独启用。 {# <--- 新增/修改提示 #}
+        </div>
+    {% else %} {# 如果 models 列表是空的 #}
+        <div class="alert alert-info" role="alert">
+            系统中还没有添加任何 AI 向量嵌入模型。 <a href="{{ url_for('admin.add_embedding_model') }}" class="alert-link">立即添加第一个？</a>
+            全局向量搜索功能需在“系统设置”中单独启用，并至少配置一个活动的向量模型。 {# <--- 修改提示 #}
+        </div>
+    {% endif %} {# 结束 if models #}
+
+{% endblock %} {# 结束 content 块 #}
