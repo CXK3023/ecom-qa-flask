@@ -1,8 +1,8 @@
-# app/routes/admin.py (SyntaxError Fix in import_products)
+# app/routes/admin.py (Fixed print statement in delete_product)
 # === vvv IMPORTS (保持不变) vvv ===
 from flask import Blueprint, render_template, abort, flash, redirect, url_for, request, current_app, Response
 from flask_login import login_required, current_user
-from ..models import FaqRule, User, Product, AiModel, EmbeddingModel, SystemSetting
+from ..models import FaqRule, User, Product, AiModel, EmbeddingModel, SystemSetting, ProductImage
 from .. import db
 from functools import wraps
 from ..services.data_service import clear_rules_cache
@@ -13,6 +13,7 @@ from werkzeug.utils import secure_filename
 import csv
 import io
 from datetime import datetime
+import sys # Import sys for traceback printing
 # === ^^^ IMPORTS ^^^ ===
 
 admin = Blueprint('admin', __name__)
@@ -195,6 +196,7 @@ def delete_rule(rule_id):
         db.session.rollback()
         flash(f'删除规则时发生错误: {e}', 'error')
     return redirect(url_for('admin.list_rules'))
+
 # ============================================
 # === ROUTES FOR USER MANAGEMENT (保持不变) ===
 # ============================================
@@ -296,11 +298,11 @@ def delete_user(user_id):
         db.session.rollback()
         flash(f'删除用户时发生错误: {e}', 'error')
     return redirect(url_for('admin.list_users'))
+
 # ===================================================
-# === ROUTES FOR PRODUCT MANAGEMENT (ADMIN - 保持不变) ===
+# === ROUTES FOR PRODUCT MANAGEMENT (ADMIN) ===
 # ===================================================
-# ... (list_all_products, edit_product, toggle_product_status, delete_product, export_products 代码不变) ...
-# ... (除了 import_products 中的语法修复) ...
+# ... (list_all_products, edit_product, toggle_product_status, export_products, import_products 不变) ...
 @admin.route('/products')
 @login_required
 @admin_required
@@ -327,7 +329,7 @@ def edit_product(product_id):
         description = request.form.get('description', '')
         price_str = request.form.get('price')
         stock_str = request.form.get('stock')
-        remove_image = request.form.get('remove_image')
+        remove_image = request.form.get('remove_image') # 假设模板中已有此 checkbox
         error = None; price = None; stock = None
         if not name: error = '商品名称不能为空。'
         if not price_str: error = '价格不能为空。'
@@ -341,13 +343,31 @@ def edit_product(product_id):
             except ValueError: error = '库存必须是有效的整数。'
             if stock is not None and stock < 0: error = '库存不能为负数。'
 
-        new_image_filename = None; delete_current_image = False
+        images_to_add = []
+        image_files = request.files.getlist('product_images') # 获取多文件列表
         if error is None:
-            image_file = request.files.get('product_image')
-            if remove_image:
-                delete_current_image = True
-            elif image_file and image_file.filename != '':
-                new_image_filename = save_product_image(image_file, product_to_edit.image_url)
+            # 处理新上传的图片
+            if image_files:
+                for image_file in image_files:
+                    if image_file and image_file.filename != '':
+                        saved_filename = save_product_image(image_file) # 注意：旧的 save_product_image 不处理旧文件删除
+                        if saved_filename:
+                            images_to_add.append(ProductImage(image_filename=saved_filename))
+                        else:
+                            error = "至少有一个图片上传失败。" # 可以在 save_product_image 中设置更详细的 flash 消息
+                            break # 如果一个失败，可能需要停止处理
+
+            # 处理删除图片请求 (假设模板中为每个图片提供删除按钮或复选框)
+            # image_ids_to_delete = request.form.getlist('delete_image_ids') # 获取要删除的图片ID列表
+            # if image_ids_to_delete:
+            #    for img_id in image_ids_to_delete:
+            #        img_to_delete = ProductImage.query.get(int(img_id))
+            #        if img_to_delete and img_to_delete.product_id == product_id: # 安全检查
+            #            filename_to_delete = img_to_delete.image_filename
+            #            db.session.delete(img_to_delete)
+            #            delete_product_image(filename_to_delete) # 删除物理文件
+            #        else:
+            #             flash(f"尝试删除无效或不属于此商品的图片 ID: {img_id}", "warning")
 
         serialized_embedding = None
         if error is None:
@@ -358,15 +378,18 @@ def edit_product(product_id):
                 else: flash('商品向量已更新。', 'info')
             except Exception as e:
                 flash(f'警告：更新商品向量时发生意外错误: {e}', 'warning')
-                print(f"ERROR embedding admin edit (ID: {product_id}): {e}", exc_info=True)
+                print(f"ERROR embedding admin edit (ID: {product_id}): {e}", file=sys.stderr) # 打印到 stderr
 
         if error is None:
             product_to_edit.name = name; product_to_edit.description = description
             product_to_edit.price = price; product_to_edit.stock = stock
-            if delete_current_image:
-                 if product_to_edit.image_url and delete_product_image(product_to_edit.image_url): product_to_edit.image_url = None
-            elif new_image_filename: product_to_edit.image_url = new_image_filename
             if serialized_embedding is not None: product_to_edit.embedding = serialized_embedding
+
+            # 关联新图片
+            if images_to_add:
+                for new_image in images_to_add:
+                    product_to_edit.images.append(new_image) # 添加到关系中
+
             try:
                 db.session.commit()
                 flash(f'商品 "{product_to_edit.name}" (ID: {product_id}) 更新成功！', 'success')
@@ -374,9 +397,14 @@ def edit_product(product_id):
             except Exception as e:
                 db.session.rollback()
                 flash(f'更新商品时发生数据库错误: {e}', 'error')
-                if new_image_filename and not delete_current_image: delete_product_image(new_image_filename)
+                # 如果出错，需要删除刚刚保存但未成功关联的图片文件
+                for img in images_to_add:
+                     delete_product_image(img.image_filename)
         else: flash(error, 'error')
-    return render_template('admin/edit_product.html', product=product_to_edit)
+    # GET 请求时传递现有图片列表给模板
+    existing_images = product_to_edit.images.all() # lazy='dynamic' 需要 .all()
+    return render_template('admin/edit_product.html', product=product_to_edit, images=existing_images)
+
 
 @admin.route('/products/toggle_status/<int:product_id>', methods=['POST'])
 @login_required
@@ -394,23 +422,63 @@ def toggle_product_status(product_id):
         flash(f'切换商品状态时发生错误: {e}', 'error')
     return redirect(url_for('admin.list_all_products'))
 
+# --- vvv 修改 delete_product 函数 (移除 print 的 exc_info 参数) vvv ---
 @admin.route('/products/delete/<int:product_id>', methods=['POST'])
 @login_required
 @admin_required
 def delete_product(product_id):
-    """Permanently delete a product and its image."""
+    """Permanently delete a product, its associated images, and the image files."""
     product_to_delete = Product.query.get_or_404(product_id)
-    image_filename_to_delete = product_to_delete.image_url
-    product_name = product_to_delete.name
+    product_name = product_to_delete.name # 在删除对象前获取名称
+
     try:
+        # 1. 查询并记录所有关联的 ProductImage 记录及其文件名
+        #    注意：如果 Product.images 设置了 cascade='all, delete-orphan',
+        #    SQLAlchemy 会在 commit 时自动处理删除关联的 ProductImage 记录。
+        #    但为了显式删除物理文件，我们仍然需要先查询它们。
+        #    如果 cascade 未设置或无效，则必须手动删除 ProductImage 记录。
+        associated_images = ProductImage.query.filter_by(product_id=product_id).all()
+        image_filenames_to_delete = [img.image_filename for img in associated_images if img.image_filename]
+
+        # 2. 删除所有关联的 ProductImage 数据库记录 (如果 cascade 未生效)
+        #    如果 cascade='all, delete-orphan' 已在 models.py 中设置并生效，
+        #    下面这个循环可以省略，SQLAlchemy 会自动处理。
+        #    为了保险起见，或者如果 cascade 不确定是否生效，保留此循环是安全的。
+        # for image_record in associated_images:
+        #    db.session.delete(image_record)
+        #    print(f"DEBUG: Explicitly deleting ProductImage record ID: {image_record.id}")
+
+        # 3. 删除 Product 数据库记录 (依赖 cascade 来删除关联的 ProductImage)
         db.session.delete(product_to_delete)
+        print(f"DEBUG: Deleting Product record ID: {product_id}")
+
+        # 4. 提交数据库事务 (此时 cascade 生效，删除 ProductImage 记录)
         db.session.commit()
-        flash(f'商品 "{product_name}" (ID: {product_id}) 已被永久删除。', 'success')
-        if image_filename_to_delete: delete_product_image(image_filename_to_delete)
+        flash(f'商品 "{product_name}" (ID: {product_id}) 及其关联图片记录已成功从数据库删除。', 'success')
+
+        # 5. 尝试删除物理图片文件 (在数据库提交成功后进行)
+        if image_filenames_to_delete:
+            print(f"DEBUG: Attempting to delete image files: {image_filenames_to_delete}")
+            all_files_deleted = True
+            for filename in image_filenames_to_delete:
+                if not delete_product_image(filename): # 复用现有的删除文件函数
+                    all_files_deleted = False
+            if not all_files_deleted:
+                flash(f'警告：商品 "{product_name}" 的部分或全部图片文件可能未能成功删除，请检查服务器日志和上传目录。', 'warning')
+        else:
+             print(f"DEBUG: No associated image files found to delete for product ID: {product_id}")
+
     except Exception as e:
         db.session.rollback()
-        flash(f'删除商品时发生错误: {e}', 'error')
+        flash(f'删除商品 "{product_name}" (ID: {product_id}) 时发生错误: {e}', 'error')
+        # --- vvv 修复 print 语句 vvv ---
+        print(f"ERROR deleting product ID {product_id}: {e}", file=sys.stderr) # 打印到 stderr
+        import traceback
+        traceback.print_exc(file=sys.stderr) # 打印完整的 traceback 到 stderr
+        # --- ^^^ 修复 print 语句 ^^^ ---
+
     return redirect(url_for('admin.list_all_products'))
+# --- ^^^ 修改 delete_product 函数 ^^^ ---
 
 @admin.route('/products/export')
 @login_required
@@ -420,21 +488,33 @@ def export_products():
     try:
         products_data = db.session.query(
             Product.id, Product.name, Product.description, Product.price, Product.stock,
-            Product.status, Product.image_url, User.username.label('seller_username')
+            Product.status, User.username.label('seller_username')
         ).join(User, Product.seller_id == User.id).order_by(Product.id).all()
+
+        # 获取图片信息
+        product_images_dict = {}
+        all_images = ProductImage.query.all()
+        for img in all_images:
+            if img.product_id not in product_images_dict:
+                product_images_dict[img.product_id] = []
+            product_images_dict[img.product_id].append(img.image_filename)
+
         output = io.StringIO(); writer = csv.writer(output, quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(['ID', 'Name', 'Description', 'Price', 'Stock', 'Status', 'Image Filename', 'Seller Username'])
-        for row in products_data: writer.writerow([row.id, row.name, row.description or '', row.price, row.stock, row.status, row.image_url or '', row.seller_username])
+        writer.writerow(['ID', 'Name', 'Description', 'Price', 'Stock', 'Status', 'Seller Username', 'Image Filenames'])
+        for row in products_data:
+            image_filenames = "; ".join(product_images_dict.get(row.id, [])) # 使用分号分隔
+            writer.writerow([row.id, row.name, row.description or '', row.price, row.stock, row.status, row.seller_username, image_filenames])
+
         output.seek(0); timestamp = datetime.now().strftime("%Y%m%d_%H%M%S"); filename = f"products_export_{timestamp}.csv"
         return Response(output, mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename={filename}"})
     except Exception as e: flash(f"导出商品数据时出错: {e}", "error"); return redirect(url_for('admin.list_all_products'))
 
-# --- 修改：修复 import_products 中的语法错误 ---
+
 @admin.route('/products/import', methods=['POST'])
 @login_required
 @admin_required
 def import_products():
-    """Import products from an uploaded CSV file, including embedding generation."""
+    """Import products from an uploaded CSV file, including embedding generation and image association."""
     from ..services.embedding_service import generate_embedding
     if 'import_file' not in request.files: flash('错误：请求中未找到文件部分。', 'error'); return redirect(url_for('admin.list_all_products'))
     file = request.files['import_file']
@@ -444,34 +524,38 @@ def import_products():
             stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
             csv_reader = csv.DictReader(stream)
             required_columns = ['Name', 'Price', 'Stock', 'Seller Username']
+            optional_columns = ['Description', 'Status', 'Image Filenames']
             header = csv_reader.fieldnames
-            if not header or not all(col in header for col in required_columns): flash(f"CSV 文件格式错误：必须包含列: {', '.join(required_columns)}", 'error'); return redirect(url_for('admin.list_all_products'))
+            if not header or not all(col in header for col in required_columns):
+                flash(f"CSV 文件格式错误：必须包含列: {', '.join(required_columns)}", 'error')
+                return redirect(url_for('admin.list_all_products'))
 
-            products_to_add = []; errors = []; success_count = 0; line_number = 1; seller_cache = {}
+            products_to_add = []; product_image_associations = []; errors = []; success_count = 0; line_number = 1; seller_cache = {}
             successful_imports_details = []
 
             for row in csv_reader:
                 line_number += 1; row_errors = []
                 name = row.get('Name', '').strip(); description = row.get('Description', '').strip(); price_str = row.get('Price', '').strip(); stock_str = row.get('Stock', '').strip()
-                status = row.get('Status', 'active').strip().lower(); image_filename = row.get('Image Filename', '').strip(); seller_username = row.get('Seller Username', '').strip()
+                status = row.get('Status', 'active').strip().lower();
+                image_filenames_str = row.get('Image Filenames', '').strip()
+                seller_username = row.get('Seller Username', '').strip()
+
                 if not name: row_errors.append("商品名称不能为空"); price = None; stock = None
                 if not price_str: row_errors.append("价格不能为空")
                 if not stock_str: row_errors.append("库存不能为空")
                 if not seller_username: row_errors.append("卖家用户名不能为空")
 
-                # === vvv 修复语法错误 vvv ===
                 try:
                     price = float(price_str)
                     if price is not None and price < 0: row_errors.append("价格不能为负数")
-                except ValueError: # <-- 明确捕获 ValueError
+                except ValueError:
                     row_errors.append("价格必须是有效的数字")
 
                 try:
                     stock = int(stock_str)
                     if stock is not None and stock < 0: row_errors.append("库存不能为负数")
-                except ValueError: # <-- 明确捕获 ValueError
+                except ValueError:
                     row_errors.append("库存必须是有效的整数")
-                # === ^^^ 修复语法错误 ^^^ ===
 
                 if status not in ['active', 'inactive']: row_errors.append(f"无效的状态值 '{status}'"); status = 'active'
                 seller_id = None
@@ -481,16 +565,22 @@ def import_products():
                         seller = User.query.filter_by(username=seller_username).first()
                         if seller and seller.role == 'seller': seller_id = seller.id; seller_cache[seller_username] = seller_id
                         else: row_errors.append(f"未找到或无效的卖家用户名 '{seller_username}'")
-                image_url_to_save = None
-                if image_filename:
-                    secured_filename = secure_filename(image_filename)
-                    if secured_filename != image_filename: row_errors.append(f"图片文件名 '{image_filename}' 包含无效字符，已修正为 '{secured_filename}'"); image_filename = secured_filename
-                    upload_folder = current_app.config.get('UPLOAD_FOLDER')
-                    if upload_folder:
-                        image_path = os.path.join(upload_folder, image_filename)
-                        if not os.path.exists(image_path): row_errors.append(f"警告：图片文件 '{image_filename}' 在服务器上传目录中未找到")
-                        else: image_url_to_save = image_filename
-                    else: row_errors.append("错误：服务器未配置图片上传目录")
+
+                image_filenames_to_check = []
+                if image_filenames_str:
+                    image_filenames_to_check = [fn.strip() for fn in image_filenames_str.replace(',', ';').split(';') if fn.strip()]
+
+                valid_image_filenames = []
+                upload_folder = current_app.config.get('UPLOAD_FOLDER')
+                if not upload_folder and image_filenames_to_check:
+                     row_errors.append("错误：服务器未配置图片上传目录，无法验证图片文件。")
+                elif image_filenames_to_check:
+                    for image_filename in image_filenames_to_check:
+                         secured_filename = secure_filename(image_filename)
+                         if secured_filename != image_filename: row_errors.append(f"警告：图片文件名 '{image_filename}' 包含无效字符，已修正为 '{secured_filename}'"); image_filename = secured_filename
+                         image_path = os.path.join(upload_folder, image_filename)
+                         if not os.path.exists(image_path): row_errors.append(f"警告：图片文件 '{image_filename}' 在服务器上传目录中未找到。")
+                         else: valid_image_filenames.append(image_filename)
 
                 serialized_embedding = None
                 if not row_errors:
@@ -500,14 +590,17 @@ def import_products():
                         if serialized_embedding is None: errors.append(f"第 {line_number} 行警告: 商品 '{name}' 的向量生成失败。")
                     except Exception as e:
                         errors.append(f"第 {line_number} 行警告: 商品 '{name}' 生成向量时出错: {e}")
-                        print(f"ERROR embedding import (Line {line_number}, Name: {name}): {e}", exc_info=True)
+                        print(f"ERROR embedding import (Line {line_number}, Name: {name}): {e}", file=sys.stderr)
 
                 if not row_errors:
-                    products_to_add.append(Product(
+                    new_product = Product(
                         name=name, description=description, price=price, stock=stock,
-                        status=status, seller_id=seller_id, image_url=image_url_to_save,
-                        embedding=serialized_embedding
-                    ));
+                        status=status, seller_id=seller_id, embedding=serialized_embedding
+                    )
+                    products_to_add.append(new_product)
+                    if valid_image_filenames:
+                         product_image_associations.append({'product_ref': new_product, 'filenames': valid_image_filenames})
+
                     successful_imports_details.append(name)
                     success_count += 1
                 else: errors.append(f"第 {line_number} 行错误: {'; '.join(row_errors)}")
@@ -515,8 +608,20 @@ def import_products():
             if products_to_add:
                  try:
                     db.session.add_all(products_to_add)
+                    db.session.flush()
+
+                    images_to_add = []
+                    for assoc in product_image_associations:
+                        product_instance = assoc['product_ref']
+                        product_id = product_instance.id
+                        for filename in assoc['filenames']:
+                            images_to_add.append(ProductImage(product_id=product_id, image_filename=filename))
+
+                    if images_to_add:
+                        db.session.add_all(images_to_add)
+
                     db.session.commit()
-                    flash(f"成功导入 {success_count} 件商品: {', '.join(successful_imports_details[:5])}{'...' if success_count > 5 else ''}", "success")
+                    flash(f"成功导入 {success_count} 件商品{f'并关联了 {len(images_to_add)} 张图片' if images_to_add else ''}：{', '.join(successful_imports_details[:5])}{'...' if success_count > 5 else ''}", "success")
                  except Exception as e:
                     db.session.rollback(); flash(f"导入过程中发生数据库错误: {e}", "error")
                     errors.append(f"数据库错误导致 {success_count} 个准备导入的商品失败。"); success_count = 0
@@ -529,10 +634,13 @@ def import_products():
                      if i >= error_limit -1 and len(errors) > error_limit: flash(f"- ... (还有 {len(errors) - error_limit} 个错误/警告未显示)", "danger"); break
         except Exception as e:
              flash(f"处理 CSV 文件时发生未知错误: {e}", "error")
-             print(f"ERROR processing CSV import: {e}", exc_info=True)
+             print(f"ERROR processing CSV import: {e}", file=sys.stderr)
+             import traceback
+             traceback.print_exc(file=sys.stderr)
     else: flash("错误：请上传有效的 .csv 文件。", "error")
 
     return redirect(url_for('admin.list_all_products'))
+
 
 # ==================================================
 # === ROUTES FOR CHAT MODEL MANAGEMENT (保持不变) ===
@@ -628,6 +736,7 @@ def set_active_chat_model(model_id):
     except Exception as e:
         db.session.rollback(); flash(f"激活对话模型时发生错误: {e}", 'error')
     return redirect(url_for('admin.list_chat_models'))
+
 # ===================================================
 # === ROUTES FOR EMBEDDING MODEL MANAGEMENT (保持不变) ===
 # ===================================================
@@ -725,6 +834,7 @@ def set_active_embedding_model(model_id):
     except Exception as e:
         db.session.rollback(); flash(f"激活 Embedding 模型时发生错误: {e}", 'error')
     return redirect(url_for('admin.list_embedding_models'))
+
 # =========================================
 # === ROUTES FOR SYSTEM SETTINGS (保持不变) ===
 # =========================================

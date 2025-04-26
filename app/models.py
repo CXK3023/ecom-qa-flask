@@ -1,9 +1,9 @@
-# app/models.py (Refactored + Re-added SystemSetting)
+# app/models.py (Added ProductImage model and relationship)
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import pickle
 import numpy as np
-from typing import Optional # 使用 Optional 兼容 Python 3.9
+from typing import Optional, List # 使用 Optional/List 兼容 Python 3.9
 # 从同级目录的 __init__.py 文件导入 db 和 login_manager 实例
 from . import db, login_manager
 
@@ -16,6 +16,9 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256))
     role = db.Column(db.String(10), nullable=False, default='buyer') # 'buyer', 'seller', 'admin'
 
+    # --- Product relationship (在 Product 定义后通过 backref 添加) ---
+    # products = db.relationship(...) <- 通过 Product.seller 添加
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
@@ -26,7 +29,7 @@ class User(UserMixin, db.Model):
     def __repr__(self):
         return f'<User {self.username}>'
 
-# --- 商品模型 (保持不变) ---
+# --- 商品模型 (增加 images 关系) ---
 class Product(db.Model):
     """商品数据模型"""
     id = db.Column(db.Integer, primary_key=True)
@@ -36,10 +39,16 @@ class Product(db.Model):
     stock = db.Column(db.Integer, default=0)
     seller_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='active', index=True)
-    image_url = db.Column(db.String(255), nullable=True)
+    # image_url = db.Column(db.String(255), nullable=True) # Day 11 后应移除或弃用
     embedding = db.Column(db.LargeBinary, nullable=True) # 存储序列化向量
 
     seller = db.relationship('User', backref=db.backref('products', lazy=True))
+    # --- vvv 添加与 ProductImage 的关系 vvv ---
+    # cascade='all, delete-orphan' 意味着删除 Product 时，所有关联的 ProductImage 也会被自动删除
+    # 这可以简化 admin.py 中的删除逻辑，但我们已在那里手动处理，保留手动处理更明确
+    images = db.relationship('ProductImage', backref='product', lazy='dynamic', cascade='all, delete-orphan')
+    # --- ^^^ 添加与 ProductImage 的关系 ^^^ ---
+
 
     @property
     def is_active(self):
@@ -56,8 +65,34 @@ class Product(db.Model):
                 return None
         return None
 
+    # --- vvv 新增：获取主图片（或第一张图片）的方法 vvv ---
+    @property
+    def main_image_filename(self) -> Optional[str]:
+        """获取此商品的第一张关联图片的文件名 (如果存在)"""
+        first_image = self.images.first() # lazy='dynamic' 允许使用 .first()
+        return first_image.image_filename if first_image else None
+    # --- ^^^ 新增 ^^^ ---
+
     def __repr__(self):
         return f'<Product {self.name}>'
+
+# --- vvv 新增：商品图片模型 vvv ---
+class ProductImage(db.Model):
+    """存储商品图片信息"""
+    __tablename__ = 'product_images' # 建议明确指定表名
+    id = db.Column(db.Integer, primary_key=True)
+    # 外键，关联到 product 表的 id 字段
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False, index=True)
+    # 存储图片的文件名 (相对于 UPLOAD_FOLDER)
+    image_filename = db.Column(db.String(255), nullable=False)
+    # (可选) 可以添加 'is_main' 字段来标记主图，或 'order' 字段来排序
+
+    # product 关系通过 Product.images 的 backref='product' 自动建立
+
+    def __repr__(self):
+        return f'<ProductImage {self.image_filename} for Product ID {self.product_id}>'
+# --- ^^^ 新增 ^^^ ---
+
 
 # --- 规则/FAQ 模型 (保持不变) ---
 class FaqRule(db.Model):
@@ -100,21 +135,17 @@ class EmbeddingModel(db.Model):
         method = f"({self.invocation_method})"
         return f'<EmbeddingModel {self.model_name} ({self.display_name or "N/A"}) {method} {active_status}>'
 
-# === vvv 重新添加：系统设置模型 vvv ===
+# --- 系统设置模型 (保持不变) ---
 class SystemSetting(db.Model):
     """存储系统级键值对设置"""
     __tablename__ = 'system_setting' # 明确表名
     id = db.Column(db.Integer, primary_key=True)
-    # 设置项的键名，例如 'enable_vector_search'
     key = db.Column(db.String(50), unique=True, nullable=False, index=True)
-    # 设置项的值，存储为字符串 (例如 'true'/'false')
     value = db.Column(db.String(255), nullable=True)
-    # (可选) 添加描述字段
     description = db.Column(db.Text, nullable=True)
 
     def __repr__(self):
         return f'<SystemSetting {self.key}={self.value}>'
-# === ^^^ 重新添加 ^^^ ===
 
 
 # --- Flask-Login 回调函数 (保持不变) ---
