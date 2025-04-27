@@ -2,7 +2,8 @@
 
 # Environment variables / Secrets
 .env
-
+simulations/*.json
+chroma_data_rag/
 # Python cache, virtual environments, temp files
 __pycache__/
 *.pyc
@@ -16,6 +17,8 @@ env/
 # docker-compose.yml
 # mysql_data/
 
+*.sqlite3
+instance/
 # IDE / Editor specific files
 .vscode/
 .idea/
