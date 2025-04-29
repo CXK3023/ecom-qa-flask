@@ -1,4 +1,4 @@
-# app/models.py (Added ProductImage model and relationship)
+# app/models.py (Added ProductImage model and relationship, AND temp_id to Product)
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import pickle
@@ -29,23 +29,25 @@ class User(UserMixin, db.Model):
     def __repr__(self):
         return f'<User {self.username}>'
 
-# --- 商品模型 (增加 images 关系) ---
+# --- 商品模型 (增加 images 关系 和 temp_id) ---
 class Product(db.Model):
     """商品数据模型"""
     id = db.Column(db.Integer, primary_key=True)
+    # === vvv 新增 temp_id 字段 vvv ===
+    # 用于在数据导入前关联评估数据，设为可空且唯一，并添加索引
+    temp_id = db.Column(db.Integer, unique=True, nullable=True, index=True)
+    # === ^^^ 新增 temp_id 字段 ^^^ ===
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
     price = db.Column(db.Float, nullable=False)
     stock = db.Column(db.Integer, default=0)
     seller_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='active', index=True)
-    # image_url = db.Column(db.String(255), nullable=True) # Day 11 后应移除或弃用
     embedding = db.Column(db.LargeBinary, nullable=True) # 存储序列化向量
 
     seller = db.relationship('User', backref=db.backref('products', lazy=True))
-    # --- vvv 添加与 ProductImage 的关系 vvv ---
+    # --- vvv 添加与 ProductImage 的关系 (保持不变) vvv ---
     # cascade='all, delete-orphan' 意味着删除 Product 时，所有关联的 ProductImage 也会被自动删除
-    # 这可以简化 admin.py 中的删除逻辑，但我们已在那里手动处理，保留手动处理更明确
     images = db.relationship('ProductImage', backref='product', lazy='dynamic', cascade='all, delete-orphan')
     # --- ^^^ 添加与 ProductImage 的关系 ^^^ ---
 
@@ -65,18 +67,20 @@ class Product(db.Model):
                 return None
         return None
 
-    # --- vvv 新增：获取主图片（或第一张图片）的方法 vvv ---
+    # --- vvv 获取主图片（或第一张图片）的方法 (保持不变) vvv ---
     @property
     def main_image_filename(self) -> Optional[str]:
         """获取此商品的第一张关联图片的文件名 (如果存在)"""
         first_image = self.images.first() # lazy='dynamic' 允许使用 .first()
         return first_image.image_filename if first_image else None
-    # --- ^^^ 新增 ^^^ ---
+    # --- ^^^ 获取主图片 ^^^ ---
 
     def __repr__(self):
-        return f'<Product {self.name}>'
+        # 在 repr 中也显示 temp_id (如果存在)
+        temp_id_str = f" (TempID:{self.temp_id})" if self.temp_id else ""
+        return f'<Product {self.name} (ID:{self.id}){temp_id_str}>'
 
-# --- vvv 新增：商品图片模型 vvv ---
+# --- vvv 商品图片模型 (保持不变) vvv ---
 class ProductImage(db.Model):
     """存储商品图片信息"""
     __tablename__ = 'product_images' # 建议明确指定表名
@@ -91,7 +95,7 @@ class ProductImage(db.Model):
 
     def __repr__(self):
         return f'<ProductImage {self.image_filename} for Product ID {self.product_id}>'
-# --- ^^^ 新增 ^^^ ---
+# --- ^^^ 商品图片模型 ^^^ ---
 
 
 # --- 规则/FAQ 模型 (保持不变) ---

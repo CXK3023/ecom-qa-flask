@@ -2,6 +2,7 @@
 
 # Environment variables / Secrets
 .env
+data_generation_scripts/*.json
 simulations/*.json
 chroma_data_rag/
 # Python cache, virtual environments, temp files
