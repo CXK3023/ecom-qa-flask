@@ -66,14 +66,14 @@ except ImportError as e:
 # <<< MODIFIED: Point to the new test questions file >>>
 TEST_QUESTIONS_FILE = 'simulations/test_questions_final.json' # <-- 使用新的文件名
 # <<< MODIFIED: Suggest adding a version suffix to the results file >>>
-RESULTS_FILE = 'simulations/rag_simulation_results_v4.4.json' # <-- 添加版本后缀
+RESULTS_FILE = 'simulations/rag_simulation_results_top5.json' # <-- 添加版本后缀
 # --- Model Configuration ---
 ACTIVE_CHAT_MODEL_NAME = "gpt-4.1" # Default, overridden by env var
 # --- ChromaDB Configuration ---
 CHROMA_DB_PATH = "./chroma_data_rag_v4_4" # <-- 使用新的持久化路径以隔离
 CHROMA_COLLECTION_NAME = "products_rag_persistent_v4_4" # 使用新的集合名称
 # --- RAG Configuration ---
-RETRIEVAL_TOP_N = 3
+RETRIEVAL_TOP_N = 5
 # --- Configuration End ---
 
 # --- Logging Setup ---

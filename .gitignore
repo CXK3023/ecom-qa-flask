@@ -6,6 +6,7 @@ data_generation_scripts/*.json
 data_generation_scripts/*.csv
 simulations/*.json
 simulations/chroma_data_rag_v4_4/
+visualizations/
 chroma_data_rag/
 # Python cache, virtual environments, temp files
 __pycache__/

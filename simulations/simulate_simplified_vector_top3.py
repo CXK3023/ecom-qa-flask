@@ -75,7 +75,7 @@ except ImportError as e:
 # <<< MODIFIED: Point to the new test questions file >>>
 TEST_QUESTIONS_FILE = 'simulations/test_questions_final.json' # <-- 使用新的文件名
 # <<< MODIFIED: Suggest adding a version suffix to the results file >>>
-RESULTS_FILE = 'simulations/simplified_vector_simulation_results_v4.4.json' # <-- 添加版本后缀
+RESULTS_FILE = 'simulations/simplified_vector_simulation_results_top3.json' # <-- 添加版本后缀
 ACTIVE_CHAT_MODEL_NAME = "gpt-4.1" # 默认值，会被环境变量覆盖
 RETRIEVAL_TOP_N = 3
 # --- Config End ---
